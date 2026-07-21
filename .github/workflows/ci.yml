@@ -2,20 +2,28 @@ name: Web CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, zcashlearn]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install
@@ -23,6 +31,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Production dependency audit
+        run: npm run audit:production
 
       - name: Build
         run: npm run build
