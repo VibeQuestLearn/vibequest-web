@@ -14,7 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-import type { LearningModuleDto, LearningTutorResponse } from "@/lib/api";
+import type { LearningModuleDto, LearningTutorResponse } from "@/lib/legacy-api";
 
 type TutorMessage = {
   id: string;

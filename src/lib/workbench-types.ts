@@ -1,4 +1,4 @@
-import type { BossAttemptRecord, CodeTutorMessageRecord, LearningQuestLink } from "@/lib/api";
+import type { BossAttemptRecord, CodeTutorMessageRecord, LearningQuestLink } from "@/lib/legacy-api";
 
 export interface WorkbenchFile {
   name: string;

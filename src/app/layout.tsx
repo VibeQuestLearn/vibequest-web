@@ -13,9 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VibeQuest",
-  description:
-    "Vibecode real apps, then prove you understand them through AI-generated quests.",
+  title: "VibeQuestLearn | Zcash Developer Labs",
+  description: "Executable Zcash integration labs for web and backend developers.",
 };
 
 export default function RootLayout({

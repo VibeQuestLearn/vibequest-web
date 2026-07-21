@@ -9,7 +9,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 
-import type { HealthResponse, LearningModuleDto, QuestRunRecord, RewardClaimRecord, UserQuestCounts } from "@/lib/api";
+import type { HealthResponse, LearningModuleDto, QuestRunRecord, RewardClaimRecord, UserQuestCounts } from "@/lib/legacy-api";
 import type { NotebookEntry, PracticeRecord, ProofLog, QuestData, VerificationGate } from "@/lib/workbench-types";
 import type { TutorMessage } from "@/components/LearningModeView";
 

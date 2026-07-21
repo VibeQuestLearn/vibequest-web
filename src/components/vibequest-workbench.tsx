@@ -39,7 +39,7 @@ import {
   type RewardClaimRecord,
   type UserQuestCounts,
   type WalletProof,
-} from "@/lib/api";
+} from "@/lib/legacy-api";
 import type {
   ActiveQuestSession,
   BossFight,

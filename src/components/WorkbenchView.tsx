@@ -1,5 +1,5 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
-import type { BossAttemptRequest } from "@/lib/api";
+import type { BossAttemptRequest } from "@/lib/legacy-api";
 import { 
   Play, 
   Terminal as TermIcon, 

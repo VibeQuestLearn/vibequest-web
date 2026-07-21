@@ -1,7 +1,10 @@
-"use client";
+import { LearningShell } from "@/components/LearningShell";
+import { loadCatalog } from "@/lib/catalog";
 
-import { VibeQuestApp } from "@/components/vibequest-app";
+export const dynamic = "force-dynamic";
 
-export default function Home() {
-  return <VibeQuestApp />;
+export default async function Home() {
+  const result = await loadCatalog();
+
+  return <LearningShell catalog={result.catalog} error={result.error} />;
 }

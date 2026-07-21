@@ -12,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 
-import type { RewardClaimRecord } from "@/lib/api";
+import type { RewardClaimRecord } from "@/lib/legacy-api";
 import type { QuestData, VerificationGate } from "@/lib/workbench-types";
 
 interface ShipGateViewProps {
