@@ -24,6 +24,7 @@ export type TrackRegistration = {
   status: TrackStatus;
   track_version: string;
   content_version: string;
+  source_manifest_version: string;
   lesson_count: number;
 };
 
@@ -164,6 +165,7 @@ function parseTrack(value: unknown): TrackRegistration {
     status,
     track_version: readString(value, "track_version"),
     content_version: readString(value, "content_version"),
+    source_manifest_version: readString(value, "source_manifest_version"),
     lesson_count: lessonCount,
   };
 }

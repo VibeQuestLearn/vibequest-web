@@ -153,7 +153,7 @@ export function LearningShell({
               <div>
                 <h2 className="text-base font-black">Track sequence</h2>
                 <p className="mt-1 text-sm text-black/50">
-                  Content version {track?.content_version ?? "2026-07-21"}
+                  Content {track?.content_version ?? "2026-07-21"} | Sources {track?.source_manifest_version ?? "zcash-sources-2026-07-21.1"}
                 </p>
               </div>
               <div className="inline-flex items-center gap-2 text-xs font-semibold text-black/45">

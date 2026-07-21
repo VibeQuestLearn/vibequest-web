@@ -32,6 +32,8 @@ Google email and display name are mutable profile fields. Ownership is keyed by 
 
 Core owns catalog validation. Unknown ecosystems and tracks return `404`; registered but disabled entries return `409`. The current registry contains only `zcash/shielded-payments-safety`, in `building` state and disabled.
 
+The track contract also carries `source_manifest_version`. Chunk 03 pins `zcash-sources-2026-07-21.1`, which identifies the exact ZIP status, official crate releases, upstream revision, licenses, and supported Revision 0 Unified Address scope used by Core's verifier.
+
 ## Persistence
 
 V3 data uses `MONGODB_DATABASE_V3`, defaulting to `vibequestlearn_v3`. The account export and deletion endpoints operate only on collections filtered by the principal's opaque `user_id`. Shared scenario definitions are not deleted with an account.

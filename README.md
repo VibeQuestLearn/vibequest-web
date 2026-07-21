@@ -34,6 +34,7 @@ Environment files are ignored. `AUTH_SECRET` must contain at least 32 bytes. All
 ## Active Boundary
 
 - The root route is server-rendered from Core's validated v3 catalog.
+- Track metadata displays the reviewed Zcash source-manifest version supplied by Core.
 - Google OAuth creates an encrypted, HTTP-only, same-site session.
 - Browser requests reach protected Core routes only through `/api/core`.
 - The BFF ignores browser identity and authorization headers, reads the server session, and mints a 60-second assertion for Core.
