@@ -7,9 +7,12 @@ import {
   Database,
   LockKeyhole,
   ShieldCheck,
-  UserRound,
 } from "lucide-react";
 
+import {
+  AccountControl,
+  type AccountSummary,
+} from "@/components/AccountControl";
 import {
   SHIELDED_PAYMENTS_TRACK_ID,
   ZCASH_ECOSYSTEM_ID,
@@ -19,6 +22,8 @@ import {
 type LearningShellProps = {
   catalog: CatalogResponse | null;
   error: string | null;
+  account: AccountSummary | null;
+  authConfigured: boolean;
 };
 
 const lessonSequence = [
@@ -29,7 +34,12 @@ const lessonSequence = [
   "Privacy review",
 ];
 
-export function LearningShell({ catalog, error }: LearningShellProps) {
+export function LearningShell({
+  catalog,
+  error,
+  account,
+  authConfigured,
+}: LearningShellProps) {
   const ecosystem = catalog?.ecosystems.find(
     (entry) => entry.ecosystem_id === ZCASH_ECOSYSTEM_ID,
   );
@@ -54,13 +64,7 @@ export function LearningShell({ catalog, error }: LearningShellProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 border-l border-black/10 pl-4">
-            <UserRound className="h-4 w-4 text-black/45" aria-hidden="true" />
-            <div className="hidden text-left sm:block">
-              <p className="text-xs font-semibold">Google account</p>
-              <p className="text-xs text-black/45">Not connected</p>
-            </div>
-          </div>
+          <AccountControl account={account} authConfigured={authConfigured} />
         </div>
       </header>
 

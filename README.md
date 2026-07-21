@@ -1,6 +1,6 @@
 # VibeQuestLearn Web
 
-Next.js application shell for ecosystem-specific developer learning labs. The active catalog currently exposes only the Zcash shielded-payments track.
+Next.js application for focused ecosystem developer labs. The active catalog contains one Zcash shielded-payments track and Google is the only account provider.
 
 Requires Node.js `22.18.0`.
 
@@ -15,41 +15,38 @@ npm run dev
 
 Start `vibequest-core` on port 8080 or set `CORE_API_BASE_URL`.
 
-## Environment
+## Identity Configuration
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `CORE_API_BASE_URL` | Production | local Core in development | Server-only Core target. |
-| `NEXT_PUBLIC_API_BASE_URL` | No | `/api/core` | Browser proxy base for future authenticated calls. |
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `CORE_API_BASE_URL` | Production | Server-only Core target. |
+| `NEXTAUTH_URL` | Yes | Canonical same-origin callback base. |
+| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID. |
+| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret. |
+| `AUTH_SECRET` | Yes | Encrypts and signs the stateless Web session. |
+| `IDENTITY_DERIVATION_SECRET` | Yes | Derives the stable opaque user ID; shared with Core. |
+| `CORE_ASSERTION_KEYS` | Yes | Rotating internal assertion keys; shared with Core. |
+| `CORE_ASSERTION_ISSUER` | No | Internal assertion issuer, default `vibequest-web`. |
+| `CORE_ASSERTION_AUDIENCE` | No | Internal assertion audience, default `vibequest-core`. |
 
-Environment files are ignored. Never place Google secrets, tokens, seed phrases, spending keys, or learner data in browser-visible variables.
+Environment files are ignored. `AUTH_SECRET` must contain at least 32 bytes. All three secrets must be independent. `IDENTITY_DERIVATION_SECRET` and each assertion key are unpadded base64url values decoding to at least 32 bytes. Never expose them through `NEXT_PUBLIC_*` variables.
 
-## Active Product
+## Active Boundary
 
-- Server-rendered work-focused shell rather than a marketing landing page.
-- Runtime-validated v3 catalog loaded from Core.
-- Zcash is the only ecosystem entry.
-- `shielded-payments-safety` is visible but disabled until its verifier and scenarios are ready.
-- No wallet, reward, badge, CKB, Fiber, or JoyID claim appears in the active shell.
+- The root route is server-rendered from Core's validated v3 catalog.
+- Google OAuth creates an encrypted, HTTP-only, same-site session.
+- Browser requests reach protected Core routes only through `/api/core`.
+- The BFF ignores browser identity and authorization headers, reads the server session, and mints a 60-second assertion for Core.
+- CCC, JoyID, wallet proof, wallet local storage, and the client-authoritative legacy workbench have been removed.
+- The prior CKB architecture remains only in `docs/legacy-ckb-product-architecture.md` and Git history.
 
-## Compatibility Boundary
-
-The inherited application remains temporarily buildable for reference:
-
-- legacy API DTOs: `src/lib/legacy-api.ts`
-- legacy orchestrator: `src/components/vibequest-workbench.tsx`
-- legacy architecture: `docs/legacy-ckb-product-architecture.md`
-
-These modules are not imported by the root route. Wallet identity is removed in Chunk 02 and the old workbench path is removed in Chunk 06.
-
-## Architecture
-
-See [`docs/product-architecture.md`](docs/product-architecture.md).
+See `docs/authentication.md` for the trust boundary and threat model, and `docs/product-architecture.md` for the platform layout.
 
 ## Checks
 
 ```bash
 npm run lint
+npx tsc --noEmit
 npm run build
 npm run audit:production
 ```
