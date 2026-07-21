@@ -2,7 +2,6 @@ import {
   BookOpenCheck,
   ChevronRight,
   CircleDot,
-  Clock3,
   Code2,
   Database,
   LockKeyhole,
@@ -13,29 +12,25 @@ import {
   AccountControl,
   type AccountSummary,
 } from "@/components/AccountControl";
+import { CurriculumWorkspace } from "@/components/CurriculumWorkspace";
 import {
   SHIELDED_PAYMENTS_TRACK_ID,
   ZCASH_ECOSYSTEM_ID,
   type CatalogResponse,
+  type PublicCurriculum,
 } from "@/lib/platform";
 
 type LearningShellProps = {
   catalog: CatalogResponse | null;
+  curriculum: PublicCurriculum | null;
   error: string | null;
   account: AccountSummary | null;
   authConfigured: boolean;
 };
 
-const lessonSequence = [
-  "Unified addresses",
-  "ZIP-321 requests",
-  "View-only boundaries",
-  "Payment lifecycle",
-  "Privacy review",
-];
-
 export function LearningShell({
   catalog,
+  curriculum,
   error,
   account,
   authConfigured,
@@ -108,7 +103,7 @@ export function LearningShell({
                     {track?.status ?? "building"}
                   </span>
                   <span className="text-xs text-black/45">
-                    Track {track?.track_version ?? "0.1.0"}
+                    Track {track?.track_version ?? "1.0.0"}
                   </span>
                 </div>
                 <h1 className="mt-3 max-w-4xl text-2xl font-black sm:text-3xl">
@@ -123,11 +118,11 @@ export function LearningShell({
               <button
                 type="button"
                 disabled
-                title="This track is disabled until its verifier and scenarios are ready."
+                title="The isolated runner is delivered in the next technical chunk."
                 className="inline-flex h-10 shrink-0 items-center justify-center gap-2 bg-black px-4 text-sm font-bold text-white opacity-45"
               >
                 <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-                Track unavailable
+                Runner in build
               </button>
             </div>
           </div>
@@ -148,35 +143,7 @@ export function LearningShell({
             />
           </section>
 
-          <section className="px-4 py-7 sm:px-8">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-base font-black">Track sequence</h2>
-                <p className="mt-1 text-sm text-black/50">
-                  Content {track?.content_version ?? "2026-07-21"} | Sources {track?.source_manifest_version ?? "zcash-sources-2026-07-21.1"}
-                </p>
-              </div>
-              <div className="inline-flex items-center gap-2 text-xs font-semibold text-black/45">
-                <Clock3 className="h-4 w-4" aria-hidden="true" />
-                Not started
-              </div>
-            </div>
-
-            <div className="mt-5 border-t border-black/10">
-              {lessonSequence.map((lesson, index) => (
-                <div
-                  key={lesson}
-                  className="grid min-h-16 grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 border-b border-black/10"
-                >
-                  <span className="text-sm font-black text-black/35">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className="min-w-0 text-sm font-semibold">{lesson}</span>
-                  <LockKeyhole className="h-4 w-4 text-black/25" aria-label="Locked" />
-                </div>
-              ))}
-            </div>
-          </section>
+          <CurriculumWorkspace curriculum={curriculum} />
         </main>
       </div>
     </div>

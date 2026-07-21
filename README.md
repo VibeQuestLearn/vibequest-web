@@ -33,8 +33,10 @@ Environment files are ignored. `AUTH_SECRET` must contain at least 32 bytes. All
 
 ## Active Boundary
 
-- The root route is server-rendered from Core's validated v3 catalog.
+- The root route is server-rendered from Core's validated v3 catalog and reviewed curriculum projection.
 - Track metadata displays the reviewed Zcash source-manifest version supplied by Core.
+- The curriculum workspace renders five selectable lessons, code lenses, checkpoint prompts, denial coverage, source trails, and capstone requirements from Core.
+- Correct checkpoint answers, rationales, hidden cases, seeded defects, and solution code never enter the Web response.
 - Google OAuth creates an encrypted, HTTP-only, same-site session.
 - Browser requests reach protected Core routes only through `/api/core`.
 - The BFF ignores browser identity and authorization headers, reads the server session, and mints a 60-second assertion for Core.

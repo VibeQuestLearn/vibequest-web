@@ -2,13 +2,14 @@ import { getServerSession } from "next-auth";
 
 import { authOptions, googleAuthConfigured } from "@/auth";
 import { LearningShell } from "@/components/LearningShell";
-import { loadCatalog } from "@/lib/catalog";
+import { loadCatalog, loadCurriculum } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [result, session] = await Promise.all([
+  const [catalogResult, curriculumResult, session] = await Promise.all([
     loadCatalog(),
+    loadCurriculum(),
     getServerSession(authOptions),
   ]);
   const account = session?.user?.id
@@ -21,8 +22,9 @@ export default async function Home() {
 
   return (
     <LearningShell
-      catalog={result.catalog}
-      error={result.error}
+      catalog={catalogResult.catalog}
+      curriculum={curriculumResult.curriculum}
+      error={catalogResult.error ?? curriculumResult.error}
       account={account}
       authConfigured={googleAuthConfigured}
     />
