@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VibeQuestLearn | Zcash Developer Labs",
-  description: "Executable Zcash integration labs for web and backend developers.",
+  title: "VibeQuestLearn | Multi-Ecosystem AI Learning Workbench",
+  description:
+    "AI-generated protocol learning for CKB, Fiber, Zcash, and future ecosystems.",
 };
 
 export default function RootLayout({

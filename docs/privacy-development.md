@@ -24,5 +24,5 @@ Account export, deletion, and retention behavior must be testable.
 
 ## Local Configuration
 
-`.env.local` remains ignored and must contain only the credentials required for local development.
+`.env` remains ignored and must contain only the credentials required for local development.
 Browser-visible variables must be treated as public and may not contain secrets.

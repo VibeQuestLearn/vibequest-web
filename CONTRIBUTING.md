@@ -1,6 +1,6 @@
 # Contributing
 
-VibeQuestLearn is being rebuilt as an ecosystem-neutral learning platform with a narrow Zcash implementation track.
+VibeQuestLearn is being rebuilt as a multi-ecosystem AI learning platform with CKB/Fiber retained and a narrow Zcash execution track for the current grant push.
 
 ## Branch And Scope
 
@@ -13,11 +13,11 @@ VibeQuestLearn is being rebuilt as an ecosystem-neutral learning platform with a
 ```bash
 nvm use
 npm ci
-cp .env.example .env.local
+cp .env.example .env
 npm run dev
 ```
 
-`.env.local` is local-only. Never stage or commit it.
+`.env` is local-only. Never stage or commit it.
 
 ## Required Checks
 
