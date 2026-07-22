@@ -14,6 +14,7 @@ import {
 } from "@/components/AccountControl";
 import { CurriculumWorkspace } from "@/components/CurriculumWorkspace";
 import {
+  RUNNER_VERSION,
   SHIELDED_PAYMENTS_TRACK_ID,
   ZCASH_ECOSYSTEM_ID,
   type CatalogResponse,
@@ -115,15 +116,26 @@ export function LearningShell({
                 </p>
               </div>
 
-              <button
-                type="button"
-                disabled
-                title="The isolated runner is delivered in the next technical chunk."
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 bg-black px-4 text-sm font-bold text-white opacity-45"
+              <div
+                role="status"
+                aria-label="Isolated runner production review status"
+                className="flex min-h-12 shrink-0 items-center gap-3 border border-black/10 bg-[#f7f8f8] px-3 py-2"
               >
-                <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-                Runner in build
-              </button>
+                <LockKeyhole
+                  className="h-4 w-4 shrink-0 text-black/45"
+                  aria-hidden="true"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-black">
+                    {track?.runner_status === "enabled"
+                      ? "Runner enabled"
+                      : "Review required"}
+                  </p>
+                  <p className="mt-0.5 break-all font-mono text-[10px] leading-4 text-black/45">
+                    {track?.runner_version ?? RUNNER_VERSION}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

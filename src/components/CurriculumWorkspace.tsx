@@ -53,7 +53,8 @@ export function CurriculumWorkspace({
           </div>
           <p className="mt-1 text-xs text-black/45">
             Content {curriculum.content_version} | Scenario{" "}
-            {curriculum.scenario_manifest_version}
+            {curriculum.scenario_manifest_version} | Runner{" "}
+            {curriculum.runner_manifest_version}
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs font-semibold text-black/50">

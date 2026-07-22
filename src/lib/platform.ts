@@ -5,8 +5,12 @@ export const CURRICULUM_VERSION =
   "zcash-shielded-payments-1.0.0" as const;
 export const SCENARIO_MANIFEST_VERSION =
   "shielded-checkout-scenarios-1.0.0" as const;
+export const RUNNER_MANIFEST_VERSION =
+  "shielded-checkout-runner-1.0.0" as const;
+export const RUNNER_VERSION = "vibequest-runner-1.0.0" as const;
 
 export type TrackStatus = "building" | "enabled" | "retired";
+export type RunnerStatus = "review-required" | "enabled";
 
 export type ZcashRegistration = {
   network: string;
@@ -29,6 +33,9 @@ export type TrackRegistration = {
   track_version: string;
   content_version: string;
   source_manifest_version: string;
+  runner_manifest_version: typeof RUNNER_MANIFEST_VERSION;
+  runner_version: typeof RUNNER_VERSION;
+  runner_status: RunnerStatus;
   lesson_count: number;
 };
 
@@ -107,6 +114,7 @@ export type PublicCurriculum = {
   content_version: string;
   source_manifest_version: string;
   scenario_manifest_version: typeof SCENARIO_MANIFEST_VERSION;
+  runner_manifest_version: typeof RUNNER_MANIFEST_VERSION;
   tutor_contract_version: string;
   reviewer_status: ReviewerStatus;
   lessons: CurriculumLesson[];
@@ -193,6 +201,7 @@ export function parsePublicCurriculum(value: unknown): PublicCurriculum {
     value.ecosystem_id !== ZCASH_ECOSYSTEM_ID ||
     value.track_id !== SHIELDED_PAYMENTS_TRACK_ID ||
     value.scenario_manifest_version !== SCENARIO_MANIFEST_VERSION ||
+    value.runner_manifest_version !== RUNNER_MANIFEST_VERSION ||
     value.reviewer_status !== "reviewed" ||
     !Array.isArray(value.lessons) ||
     value.lessons.length !== 5 ||
@@ -210,6 +219,7 @@ export function parsePublicCurriculum(value: unknown): PublicCurriculum {
     content_version: readString(value, "content_version"),
     source_manifest_version: readString(value, "source_manifest_version"),
     scenario_manifest_version: SCENARIO_MANIFEST_VERSION,
+    runner_manifest_version: RUNNER_MANIFEST_VERSION,
     tutor_contract_version: readString(value, "tutor_contract_version"),
     reviewer_status: "reviewed",
     lessons: value.lessons.map(parseCurriculumLesson),
@@ -327,6 +337,19 @@ function parseTrack(value: unknown): TrackRegistration {
   if (status !== "building" && status !== "enabled" && status !== "retired") {
     throw new Error("Core returned an unsupported track status.");
   }
+  const runnerStatus = readString(value, "runner_status");
+  if (
+    runnerStatus !== "review-required" &&
+    runnerStatus !== "enabled"
+  ) {
+    throw new Error("Core returned an unsupported runner status.");
+  }
+  if (
+    value.runner_manifest_version !== RUNNER_MANIFEST_VERSION ||
+    value.runner_version !== RUNNER_VERSION
+  ) {
+    throw new Error("Core returned an unsupported runner contract.");
+  }
   const lessonCount = value.lesson_count;
   if (typeof lessonCount !== "number" || !Number.isInteger(lessonCount) || lessonCount < 0) {
     throw new Error("Core returned an invalid lesson count.");
@@ -341,6 +364,9 @@ function parseTrack(value: unknown): TrackRegistration {
     track_version: readString(value, "track_version"),
     content_version: readString(value, "content_version"),
     source_manifest_version: readString(value, "source_manifest_version"),
+    runner_manifest_version: RUNNER_MANIFEST_VERSION,
+    runner_version: RUNNER_VERSION,
+    runner_status: runnerStatus,
     lesson_count: lessonCount,
   };
 }

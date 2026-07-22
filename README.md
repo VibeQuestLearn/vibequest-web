@@ -34,7 +34,8 @@ Environment files are ignored. `AUTH_SECRET` must contain at least 32 bytes. All
 ## Active Boundary
 
 - The root route is server-rendered from Core's validated v3 catalog and reviewed curriculum projection.
-- Track metadata displays the reviewed Zcash source-manifest version supplied by Core.
+- Track metadata displays the reviewed Zcash source and runner versions supplied by Core.
+- Runner status is parsed as a pinned contract and shown as `review-required`; Web exposes no execution control while Core is production-gated.
 - The curriculum workspace renders five selectable lessons, code lenses, checkpoint prompts, denial coverage, source trails, and capstone requirements from Core.
 - Correct checkpoint answers, rationales, hidden cases, seeded defects, and solution code never enter the Web response.
 - Google OAuth creates an encrypted, HTTP-only, same-site session.
@@ -43,7 +44,7 @@ Environment files are ignored. `AUTH_SECRET` must contain at least 32 bytes. All
 - CCC, JoyID, wallet proof, wallet local storage, and the client-authoritative legacy workbench have been removed.
 - The prior CKB architecture remains only in `docs/legacy-ckb-product-architecture.md` and Git history.
 
-See `docs/authentication.md` for the trust boundary and threat model, and `docs/product-architecture.md` for the platform layout.
+See `docs/authentication.md` for the identity trust boundary and `docs/product-architecture.md` for the platform and runner boundary.
 
 ## Checks
 
