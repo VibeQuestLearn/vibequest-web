@@ -5,7 +5,6 @@ import { createHmac } from "node:crypto";
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-import { assertionSigningConfigured } from "@/lib/core-assertion";
 
 const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "";
@@ -17,8 +16,7 @@ export const googleAuthConfigured = Boolean(
   googleClientId &&
     googleClientSecret &&
     validSessionSecret(authSecret) &&
-    validIdentitySecret(identitySecret) &&
-    assertionSigningConfigured(),
+    validIdentitySecret(identitySecret),
 );
 
 export const authOptions: NextAuthOptions = {

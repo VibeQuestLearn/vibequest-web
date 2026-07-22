@@ -171,6 +171,7 @@ function isExpensiveCoreRoute(path: string): boolean {
   return (
     path.includes("/generate") ||
     path.includes("/tutor") ||
+    path.startsWith("ai/learning") ||
     path.startsWith("v3/submissions")
   );
 }
