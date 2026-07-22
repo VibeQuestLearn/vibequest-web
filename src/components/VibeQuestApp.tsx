@@ -12,6 +12,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   LoaderCircle,
+  LockKeyhole,
   MessageSquare,
   Network,
   Play,
@@ -666,85 +667,311 @@ function LandingView({
   onEnter: () => void;
   onLearn: () => void;
 }) {
-  return (
-    <div className="min-h-screen overflow-x-hidden bg-[#0B0C0E] font-sans text-on-surface selection:bg-electric-blue/30">
-      <div className="pointer-events-none fixed inset-0 z-10 opacity-30">
-        <div className="absolute right-[-10%] top-[-10%] h-[50%] w-[50%] rounded-full bg-electric-blue/10 blur-[150px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] h-[50%] w-[50%] rounded-full bg-cyber-green/5 blur-[150px]" />
-      </div>
+  const architectureCards = [
+    {
+      icon: <ShieldCheck className="h-5 w-5" aria-hidden="true" />,
+      title: "CKB (Nervos)",
+      copy: "Master RGB++ based smart contracts, cell model architecture, and state-channel fundamentals on the Common Knowledge Base.",
+      meta: "CKB retained",
+      tone: "text-cyber-green",
+    },
+    {
+      icon: <Network className="h-5 w-5" aria-hidden="true" />,
+      title: "Fiber Network",
+      copy: "Build next-generation Lightning-style payment channels. Learn HTLCs, routing protocols, and multi-hop channel management.",
+      meta: "Fiber retained",
+      tone: "text-warning-amber",
+    },
+    {
+      icon: <LockKeyhole className="h-5 w-5" aria-hidden="true" />,
+      title: "Zcash",
+      copy: "Deep dive into privacy-preserving protocols. Implement zk-SNARKs, shielded transactions, and zero-knowledge proofs.",
+      meta: "Zcash active",
+      tone: "text-electric-blue",
+    },
+  ];
 
-      <header className="relative z-20 mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:px-8">
-        <button type="button" onClick={onEnter} className="flex items-center gap-3 text-left">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-gradient-to-tr from-electric-blue to-cyber-green font-mono font-bold text-black shadow-[0_0_15px_rgba(0,240,255,0.4)]">
-            V
-          </div>
-          <div>
-            <span className="block text-lg font-bold text-white">VibeQuest</span>
-            <span className="block text-[10px] font-mono uppercase leading-none text-on-surface-variant">WORKBENCH</span>
-          </div>
-        </button>
-        <div className="rounded-xl bg-white px-2 py-1 text-black shadow-panel-sm">
-          <AccountControl account={account} authConfigured={authConfigured} />
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-[#07100f] font-sans text-white selection:bg-electric-blue/30">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-[#06100f]/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-5 sm:px-8">
+          <button type="button" onClick={onEnter} className="group flex items-center gap-3 text-left">
+            <span className="flex h-7 w-7 items-center justify-center bg-electric-blue text-black shadow-[0_0_18px_rgba(0,240,255,0.35)] transition-transform group-hover:translate-x-0.5">
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <span className="font-mono text-[11px] font-black uppercase tracking-[-0.02em] text-white">
+              VibeQuest
+            </span>
+          </button>
+
+          <nav className="hidden items-center gap-12 font-mono text-[9px] font-bold uppercase tracking-[0.34em] text-white/55 md:flex" aria-label="Landing sections">
+            <a className="transition hover:text-electric-blue" href="#chains">Chains</a>
+            <a className="transition hover:text-electric-blue" href="#workflow">Workflow</a>
+            <a className="transition hover:text-electric-blue" href="#quests">Quests</a>
+          </nav>
+
+          <button
+            type="button"
+            onClick={onEnter}
+            title={account ? "Open your workbench" : "Open the workbench and sign in when ready"}
+            className="inline-flex h-9 items-center justify-center gap-2 bg-electric-blue px-4 font-mono text-[9px] font-black uppercase tracking-[0.22em] text-black shadow-[0_0_24px_rgba(0,240,255,0.18)] transition hover:brightness-110"
+          >
+            Open Workbench
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
         </div>
       </header>
 
-      <main className="relative z-20 mx-auto max-w-7xl px-4 pb-16 md:px-8">
-        <section className="mx-auto max-w-6xl py-20 text-center md:py-28">
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-cyber-green/20 bg-cyber-green/10 px-3 py-1.5">
-            <span className="h-2 w-2 rounded-full bg-cyber-green" />
-            <span className="font-mono text-xs font-semibold uppercase tracking-wider text-cyber-green">
-              CKB / Fiber retained, Zcash grant track active
-            </span>
+      <main>
+        <section
+          className="relative flex min-h-[780px] items-center justify-center overflow-hidden px-5 pt-28 text-center"
+          style={{
+            backgroundImage:
+              "linear-gradient(180deg, rgba(3,10,10,0.62) 0%, rgba(3,10,10,0.84) 55%, #07100f 100%), url('/images/vibequest/protocol-network.png')",
+            backgroundPosition: "center top",
+            backgroundSize: "cover",
+          }}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,240,255,0.16),transparent_34%),linear-gradient(90deg,rgba(7,16,15,0.86),transparent_18%,transparent_82%,rgba(7,16,15,0.86))]" />
+          <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center">
+            <div className="mb-9 inline-flex items-center gap-2 rounded-full border border-electric-blue/40 bg-[#061615]/80 px-4 py-1.5 shadow-[0_0_24px_rgba(0,240,255,0.12)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-electric-blue shadow-[0_0_12px_rgba(0,240,255,0.9)]" />
+              <span className="font-mono text-[9px] font-black uppercase tracking-[0.18em] text-electric-blue">
+                System online · Protocol v3.6.1
+              </span>
+            </div>
+
+            <h1 className="max-w-4xl text-balance text-[42px] font-black uppercase leading-[0.95] tracking-[-0.055em] text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.75)] sm:text-6xl lg:text-[76px]">
+              The AI Workbench
+              <span className="block">For</span>
+              <span className="block text-electric-blue drop-shadow-[0_3px_0_rgba(0,0,0,0.95)]">
+                Protocol Builders.
+              </span>
+            </h1>
+
+            <p className="mt-7 max-w-2xl text-balance text-sm leading-7 text-white/66 sm:text-base">
+              Choose the chain, generate the lesson, prove the code. Master the bleeding edge of cryptographic proofs and payment channels.
+            </p>
+
+            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <button
+                type="button"
+                onClick={onLearn}
+                className="inline-flex h-12 min-w-56 items-center justify-center gap-3 bg-electric-blue px-6 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-black shadow-[0_0_32px_rgba(0,240,255,0.2)] transition hover:-translate-y-0.5 hover:brightness-110"
+              >
+                Start Learning
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={onEnter}
+                className="inline-flex h-12 min-w-56 items-center justify-center gap-3 border border-white/22 bg-black/35 px-6 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-white transition hover:border-electric-blue/60 hover:text-electric-blue"
+              >
+                <Terminal className="h-4 w-4" aria-hidden="true" />
+                Explore Quests
+              </button>
+            </div>
+
+            {!authConfigured ? (
+              <p className="mt-5 max-w-xl border border-warning-amber/35 bg-warning-amber/10 px-4 py-3 text-xs leading-6 text-warning-amber">
+                Google auth is not configured in this running web process. Add the Google variables and restart before testing sign-in.
+              </p>
+            ) : null}
+
+            <TerminalWindow className="mt-14 w-full max-w-[860px]" title="vibequest.init.rs">
+              <pre className="overflow-x-auto p-6 text-left font-mono text-[11px] leading-6 text-white/90 sm:text-xs">
+                <code>
+                  <span className="text-cyber-green">fn</span> verify_proof(proof: <span className="text-warning-amber">ZkProof</span>, public_input: <span className="text-electric-blue">Bytes</span>) -&gt; <span className="text-cyber-green">Result</span>&lt;(), Error&gt; &#123;{"\n"}
+                  <span className="text-white/60">    let verifier = </span><span className="text-electric-blue">Verifier</span>::new(VK_HASH);{"\n"}
+                  <span className="text-white/60">    </span><span className="text-cyber-green">if</span><span className="text-white/60"> !verifier.verify(proof, public_input)? &#123;</span>{"\n"}
+                  <span className="text-white/60">        </span><span className="text-cyber-green">return</span><span className="text-white/60"> Err(Error::InvalidProof);</span>{"\n"}
+                  <span className="text-white/60">    &#125;</span>{"\n"}
+                  <span className="text-white/60">    Ok(())</span>{"\n"}
+                  <span className="text-white/60">&#125;</span>
+                </code>
+              </pre>
+            </TerminalWindow>
+          </div>
+        </section>
+
+        <section id="chains" className="relative mx-auto max-w-[1440px] px-5 py-24 sm:px-8 lg:py-32">
+          <div className="text-center">
+            <h2 className="text-2xl font-black uppercase tracking-[-0.04em] drop-shadow-[0_3px_0_rgba(0,0,0,0.8)] sm:text-3xl">
+              Target Architectures
+            </h2>
+            <p className="mt-4 text-xs text-white/42 sm:text-sm">
+              Select your protocol. Generate intent-driven learning modules.
+            </p>
           </div>
 
-          <h1 className="mb-6 text-4xl font-extrabold leading-[1.1] tracking-tight text-white md:text-7xl lg:text-8xl">
-            Choose the chain,
-            <br />
-            <span className="text-electric-blue">generate the lesson,</span>
-            <br />
-            prove the code.
-          </h1>
+          <div className="mt-14 grid gap-8 md:grid-cols-3">
+            {architectureCards.map((card) => (
+              <article key={card.title} className="group border border-white/[0.055] bg-[#040b0b]/82 p-8 shadow-[0_24px_70px_rgba(0,0,0,0.28)] transition hover:-translate-y-1 hover:border-electric-blue/30 hover:bg-[#061111]">
+                <div className="mb-7 flex h-12 w-12 items-center justify-center rounded-md bg-electric-blue/10 text-electric-blue shadow-[0_0_24px_rgba(0,240,255,0.12)]">
+                  {card.icon}
+                </div>
+                <h3 className="text-lg font-black text-white">{card.title}</h3>
+                <p className="mt-5 min-h-24 text-sm leading-7 text-white/58">{card.copy}</p>
+                <p className={`mt-7 font-mono text-[9px] font-black uppercase tracking-[0.2em] ${card.tone}`}>
+                  {card.meta}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
 
-          <p className="mx-auto mb-10 max-w-3xl text-lg font-light leading-relaxed text-on-surface-variant md:text-2xl">
-            VibeQuest is the AI learning workbench for protocol builders. Sign in with Google, choose CKB, Fiber, or Zcash, generate a deep module from your intent, then convert passed lessons into code quests.
-          </p>
+        <section id="workflow" className="border-y border-white/[0.06] bg-[#0a1514] px-5 py-24 sm:px-8 lg:py-32">
+          <div className="mx-auto grid max-w-[1440px] gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <div>
+              <h2 className="text-3xl font-black uppercase tracking-[-0.05em] drop-shadow-[0_3px_0_rgba(0,0,0,0.8)] sm:text-4xl">
+                The Learning Loop
+              </h2>
+              <p className="mt-6 max-w-xl text-sm leading-7 text-white/62">
+                VibeQuest does not offer static tutorials. You declare your intent, our AI models synthesize a custom learning module, then real-time protocol documentation, code, and runner evidence keep the work grounded.
+              </p>
 
-          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <button
-              type="button"
-              onClick={onLearn}
-              className="w-full rounded-xl bg-electric-blue px-10 py-5 text-lg font-bold text-[#0B0C0E] shadow-[0_0_30px_rgba(0,240,255,0.3)] transition-all hover:brightness-110 active:scale-95 sm:w-auto"
-            >
-              Start Learning
-            </button>
+              <div className="mt-12 space-y-9">
+                <LoopStep number="01" title="Declare Intent">
+                  “I want to build a HTLC contract on CKB.” The engine parses your intent and cross-references protocol capabilities.
+                </LoopStep>
+                <LoopStep number="02" title="Module Synthesis">
+                  AI generates a tailored learning path, complete with architectural diagrams, prerequisite concepts, and sandboxed environments.
+                </LoopStep>
+                <LoopStep number="03" title="Prove the Code">
+                  Complete the generated quest. Your code is compiled, tested against the protocol node, and verified cryptographically.
+                </LoopStep>
+              </div>
+            </div>
+
+            <TerminalWindow title="ENGINE_OUTPUT.LOG" action="✦">
+              <div className="p-7 font-mono text-[11px] leading-7 text-white/68 sm:text-xs">
+                <p>&gt; Initializing module synthesis...</p>
+                <p>&gt; Target: CKB / Fiber / Zcash</p>
+                <p>&gt; Intent: Shielded checkout validation</p>
+                <p className="mt-4 text-cyber-green">[SUCCESS] Found relevant protocol specs v1.2</p>
+                <ol className="mt-3 space-y-1 text-white/72">
+                  <li>✓ 1. Cell Model Basics</li>
+                  <li>✓ 2. Lock Script Fundamentals</li>
+                  <li>✓ 3. Time-lock constraints...</li>
+                </ol>
+                <div className="mt-8 border border-electric-blue/35 bg-electric-blue/[0.055] p-5">
+                  <p className="text-electric-blue">{"// Quest Generated:"}</p>
+                  <p className="mt-2 italic text-white/80">
+                    Implement a script that verifies the timelock condition before allowing cell consumption.
+                  </p>
+                </div>
+              </div>
+            </TerminalWindow>
+          </div>
+        </section>
+
+        <section id="quests" className="border-b border-white/[0.06] bg-[#050c0c] px-5 py-10 sm:px-8">
+          <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-0 text-center md:grid-cols-4">
+            <LandingStat value="3" label="Protocol targets" />
+            <LandingStat value="5" label="AI lessons/module" />
+            <LandingStat value="1" label="Reviewed Zcash runner" />
+            <LandingStat value="0" label="Fake placeholders" />
+          </div>
+        </section>
+
+        <section
+          className="relative overflow-hidden px-5 py-28 text-center sm:px-8 lg:py-40"
+          style={{
+            backgroundImage:
+              "linear-gradient(180deg, rgba(5,12,12,0.78) 0%, rgba(5,12,12,0.62) 42%, rgba(5,12,12,0.9) 100%), url('/images/vibequest/workbench-lab.png')",
+            backgroundPosition: "center",
+            backgroundSize: "cover",
+          }}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,240,255,0.16),transparent_28%)]" />
+          <div className="relative z-10 mx-auto max-w-4xl">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center border border-electric-blue/45 bg-electric-blue/10 text-electric-blue shadow-[0_0_34px_rgba(0,240,255,0.24)]">
+              <Cpu className="h-7 w-7" aria-hidden="true" />
+            </div>
+            <h2 className="mt-9 text-4xl font-black uppercase leading-none tracking-[-0.06em] drop-shadow-[0_4px_0_rgba(0,0,0,0.8)] sm:text-6xl">
+              Enter the Workbench.
+            </h2>
+            <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-white/70 sm:text-base">
+              Stop reading documentation. Start proving code. The next generation of global settlement layers will build themselves.
+            </p>
             <button
               type="button"
               onClick={onEnter}
-              className="w-full rounded-xl border border-glass-border bg-transparent px-10 py-5 text-lg font-bold text-electric-blue transition-all hover:bg-electric-blue/5 active:scale-95 sm:w-auto"
+              className="mt-10 inline-flex h-12 items-center justify-center gap-3 bg-electric-blue px-8 font-mono text-[10px] font-black uppercase tracking-[0.2em] text-black transition hover:-translate-y-0.5 hover:brightness-110"
             >
-              Open Workbench
+              Initialize Environment
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
-
-          {!authConfigured ? (
-            <p className="mx-auto mt-5 max-w-xl rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-3 text-xs leading-relaxed text-warning-amber">
-              Google auth is not configured in the running web process. Restart after adding GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to `.env`.
-            </p>
-          ) : null}
-        </section>
-
-        <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {ECOSYSTEMS.map((ecosystem) => (
-            <div key={ecosystem.id} className="rounded-2xl border border-glass-border bg-[#16181D] p-6">
-              <div className={`mb-5 inline-flex rounded-lg border px-3 py-1 text-xs font-black uppercase tracking-wider ${ecosystem.accent}`}>
-                {ecosystem.label}
-              </div>
-              <h2 className="text-2xl font-bold text-white">{ecosystem.questLabel}</h2>
-              <p className="mt-3 text-sm leading-relaxed text-on-surface-variant">{ecosystem.detail}</p>
-            </div>
-          ))}
         </section>
       </main>
+
+      <footer className="border-t border-white/[0.06] bg-[#050909] px-5 py-8 sm:px-8">
+        <div className="mx-auto flex max-w-[1440px] flex-col gap-6 text-[10px] uppercase tracking-[0.22em] text-white/38 md:flex-row md:items-center md:justify-between">
+          <button type="button" onClick={onEnter} className="flex items-center gap-2 font-mono font-black text-electric-blue">
+            <ChevronRight className="h-3 w-3" aria-hidden="true" />
+            VibeQuest
+          </button>
+          <div className="flex flex-wrap gap-7 font-mono">
+            <a href="#workflow" className="hover:text-electric-blue">Documentation</a>
+            <a href="https://github.com/VibeQuestLearn" className="hover:text-electric-blue">GitHub</a>
+            <button type="button" onClick={onLearn} className="uppercase tracking-[0.22em] hover:text-electric-blue">Start Learning</button>
+          </div>
+          <p>© 2026 VibeQuest. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function TerminalWindow({
+  title,
+  action,
+  className = "",
+  children,
+}: {
+  title: string;
+  action?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`overflow-hidden rounded-md border border-white/14 bg-[#030909]/88 shadow-[0_22px_90px_rgba(0,0,0,0.46)] backdrop-blur-sm ${className}`}>
+      <div className="flex h-8 items-center justify-between border-b border-white/[0.07] bg-white/[0.045] px-4">
+        <div className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ff4d4d]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ffcc33]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#37d67a]" />
+        </div>
+        <span className="font-mono text-[9px] uppercase tracking-[0.24em] text-white/28">{title}</span>
+        <span className="w-10 text-right font-mono text-[10px] text-electric-blue">{action ?? ""}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function LoopStep({ number, title, children }: { number: string; title: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[44px_1fr] gap-5">
+      <div className="relative flex justify-center">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full border border-electric-blue bg-[#07100f] font-mono text-[10px] font-black text-electric-blue shadow-[0_0_18px_rgba(0,240,255,0.16)]">
+          {number}
+        </div>
+      </div>
+      <div>
+        <h3 className="text-sm font-black text-white">{title}</h3>
+        <p className="mt-2 max-w-xl text-xs leading-6 text-white/52">{children}</p>
+      </div>
+    </div>
+  );
+}
+
+function LandingStat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="border-white/[0.07] px-4 py-4 md:border-r md:last:border-r-0">
+      <p className="font-mono text-3xl font-black text-electric-blue sm:text-4xl">{value}</p>
+      <p className="mt-2 font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-white/42">{label}</p>
     </div>
   );
 }
