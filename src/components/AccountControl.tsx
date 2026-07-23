@@ -27,7 +27,10 @@ export function AccountControl({
     setError(null);
 
     try {
-      await signIn("google", { callbackUrl: "/" });
+      const callbackUrl = typeof window === "undefined"
+        ? "/"
+        : `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      await signIn("google", { callbackUrl });
     } catch {
       setPending(null);
       setError("Google sign-in could not start.");

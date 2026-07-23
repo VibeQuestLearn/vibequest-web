@@ -23,7 +23,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AccountControl,
@@ -31,10 +31,11 @@ import {
 } from "@/components/AccountControl";
 import {
   askAndSaveLearningTutor,
-  generateLearningModule,
+  generateLearningLesson,
   generateLearningQuest,
   getRunnerSubmission,
   loadLearningSession,
+  loadLearningSessions,
   saveLearningSession,
   submitRunnerSource,
   type EcosystemId,
@@ -52,6 +53,8 @@ import {
 type TabId = "landing" | "dashboard" | "learn" | "quest-run" | "workbench" | "ship-gate";
 type SyncState = "idle" | "loading" | "saving" | "saved" | "local-only";
 type LearnScreenMode = "select" | "module";
+type GenerationState = "idle" | "loading" | "background";
+type CourseGenerationStatus = "ready" | "generating" | "complete" | "error";
 
 type EcosystemOption = {
   id: EcosystemId;
@@ -62,6 +65,7 @@ type EcosystemOption = {
   defaultTopic: string;
   interests: string[];
   questLabel: string;
+  suggestedTopics: string[];
 };
 
 type TutorMessage = {
@@ -89,6 +93,8 @@ type ModuleState = {
   interests: string[];
   learnerGoal: string;
   module: LearningModuleDto;
+  generationStatus: CourseGenerationStatus;
+  totalLessons: number;
 };
 
 type QuestState = {
@@ -101,7 +107,26 @@ type QuestState = {
   runnerError: string | null;
 };
 
+const TOTAL_LEARNING_MODULES = 5;
+
 const ECOSYSTEMS: EcosystemOption[] = [
+  {
+    id: "basics",
+    label: "Basics",
+    pathId: "basics-web-blockchain",
+    accent: "text-electric-blue border-electric-blue/40 bg-electric-blue/10",
+    detail: "Web fundamentals, blockchain fundamentals, auth boundaries, APIs, wallets, transactions, and deployment safety.",
+    defaultTopic: "Web and blockchain fundamentals for AI-assisted protocol builders",
+    interests: ["Web Basics", "Blockchain Basics", "Authentication Boundaries", "Transaction Fundamentals"],
+    questLabel: "Foundations implementation quest",
+    suggestedTopics: [
+      "HTTP, APIs, frontend/backend boundaries, and safe generated app state",
+      "Wallets, keys, signatures, transactions, mempools, and confirmations",
+      "Authentication, sessions, authorization, and replay-safe request design",
+      "UTXO versus account models and why protocol evidence differs from database state",
+      "Deployment, secrets, CORS, OAuth redirects, and production safety basics",
+    ],
+  },
   {
     id: "ckb",
     label: "CKB",
@@ -111,6 +136,13 @@ const ECOSYSTEMS: EcosystemOption[] = [
     defaultTopic: "Cells, scripts, witnesses, and replay-safe verifier code",
     interests: ["CKB Cell Model", "CKB Scripts", "Witness Verification", "Transaction Proof Boundaries"],
     questLabel: "CKB verifier quest",
+    suggestedTopics: [
+      "CKB cell model: capacity, data, lock scripts, type scripts, and live-cell state",
+      "OutPoint lineage, witnesses, inputs, outputs, and transaction proof boundaries",
+      "Generated CKB verifier code: trusted fields, script groups, and denial tests",
+      "xUDT transfer validation, supply assumptions, and reward-safe ship gates",
+      "Replay-safe CKB backend design with nonce, cell, and witness mismatch tests",
+    ],
   },
   {
     id: "fiber",
@@ -121,6 +153,13 @@ const ECOSYSTEMS: EcosystemOption[] = [
     defaultTopic: "Fiber invoices, PTLC proof boundaries, and paid-access receipt checks",
     interests: ["Fiber Payments", "Payment Channels", "PTLC Proofs", "Receipt Replay Defense"],
     questLabel: "Fiber payment proof quest",
+    suggestedTopics: [
+      "Fiber payment channels: invoices, channel state, settlement assumptions, and routing",
+      "PTLC/preimage evidence boundaries and replay-resistant paid access",
+      "Generated Fiber receipt verification with amount, route, and channel mismatch tests",
+      "Multi-hop payment UX and what the backend must verify before unlocking content",
+      "CKB settlement boundaries for Fiber apps and reward-safe proof handling",
+    ],
   },
   {
     id: "zcash",
@@ -131,6 +170,13 @@ const ECOSYSTEMS: EcosystemOption[] = [
     defaultTopic: "Shielded checkout with ZIP-321 payment request validation and privacy denial cases",
     interests: ["Zcash Shielded Payments", "ZIP-321 Payment Requests", "Viewing-Key Boundaries", "Privacy-Preserving Checkout"],
     questLabel: "Zcash shielded checkout quest",
+    suggestedTopics: [
+      "Zcash privacy model: transparent vs shielded transactions, threat models, and metadata leaks",
+      "Sapling and Orchard fundamentals: notes, commitments, nullifiers, keys, and viewing boundaries",
+      "ZIP-321 payment requests: URI structure, wallet interoperability, validation, and denial cases",
+      "Memos and user privacy safety: memo handling, sender/receiver risks, and data minimization",
+      "Shielded wallet sync and confirmations: scanning, note commitment trees, reorg safety, and UX tradeoffs",
+    ],
   },
 ];
 
@@ -152,24 +198,31 @@ const TABS: { id: TabId; label: string }[] = [
 export function VibeQuestApp({
   account,
   authConfigured,
+  initialPath = "/",
 }: {
   account: AccountSummary | null;
   authConfigured: boolean;
+  initialPath?: string;
 }) {
-  const [activeTab, setActiveTab] = useState<TabId>("landing");
-  const [learnScreenMode, setLearnScreenMode] = useState<LearnScreenMode>("select");
+  const initialRoute = currentAppRoute(initialPath);
+  const [activeTab, setActiveTab] = useState<TabId>(initialRoute.tab);
+  const [requestedCourseId, setRequestedCourseId] = useState<string | null>(initialRoute.courseId);
+  const [requestedLessonId, setRequestedLessonId] = useState<string | null>(initialRoute.lessonId);
+  const [learnScreenMode, setLearnScreenMode] = useState<LearnScreenMode>(initialRoute.courseId ? "module" : "select");
   const [ecosystemId, setEcosystemId] = useState<EcosystemId>("zcash");
   const selectedEcosystem = ecosystemById(ecosystemId);
   const [topic, setTopic] = useState(selectedEcosystem.defaultTopic);
   const [profile, setProfile] = useState("Vibecoder");
   const [pace, setPace] = useState("Focused");
   const [intentText, setIntentText] = useState("Understand the trust boundary");
+  const [courseLibrary, setCourseLibrary] = useState<LearningSessionRecord[]>([]);
+  const [libraryState, setLibraryState] = useState<SyncState>("idle");
   const [moduleState, setModuleState] = useState<ModuleState | null>(null);
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [syncState, setSyncState] = useState<SyncState>("idle");
   const [syncWarning, setSyncWarning] = useState<string | null>(null);
-  const [generationState, setGenerationState] = useState<"idle" | "loading">("idle");
+  const [generationState, setGenerationState] = useState<GenerationState>("idle");
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [tutorQuestion, setTutorQuestion] = useState("");
   const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([]);
@@ -179,6 +232,10 @@ export function VibeQuestApp({
   const [questGenerationState, setQuestGenerationState] = useState<"idle" | "loading">("idle");
   const [questError, setQuestError] = useState<string | null>(null);
   const [runnerSubmitting, setRunnerSubmitting] = useState(false);
+  const generationRunRef = useRef<string | null>(null);
+  const answersRef = useRef(answers);
+  const tutorMessagesRef = useRef(tutorMessages);
+  const activeLessonIndexRef = useRef(activeLessonIndex);
 
   const generatedModule = moduleState?.module ?? null;
   const activeLesson = generatedModule?.lessons[activeLessonIndex] ?? null;
@@ -189,43 +246,126 @@ export function VibeQuestApp({
   );
 
   useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    tutorMessagesRef.current = tutorMessages;
+  }, [tutorMessages]);
+
+  useEffect(() => {
+    activeLessonIndexRef.current = activeLessonIndex;
+  }, [activeLessonIndex]);
+
+  useEffect(() => {
+    function syncRoute() {
+      const route = currentAppRoute();
+      setActiveTab(route.tab);
+      setRequestedCourseId(route.courseId);
+      setRequestedLessonId(route.lessonId);
+      if (route.tab === "learn" && !route.courseId) {
+        setLearnScreenMode("select");
+      }
+    }
+
+    syncRoute();
+    window.addEventListener("popstate", syncRoute);
+    return () => window.removeEventListener("popstate", syncRoute);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
-    async function restoreSession() {
+    async function restoreSessions() {
       if (!account) {
+        setCourseLibrary([]);
+        setLibraryState("idle");
         setSyncState("idle");
         return;
       }
-      setSyncState("loading");
+
+      setLibraryState("loading");
+      setSyncState((state) => (state === "idle" ? "loading" : state));
       setSyncWarning(null);
       try {
-        const response = await loadLearningSession();
+        const response = await loadLearningSessions();
         if (cancelled) return;
+        setCourseLibrary(response.sessions);
+        setLibraryState(response.persistence.saved ? "saved" : "local-only");
+        setSyncState(response.persistence.saved ? "saved" : "local-only");
         if (response.persistence.warning) {
           setSyncWarning(response.persistence.warning);
         }
-        if (response.session) {
-          applySessionRecord(response.session);
-          setSyncState(response.persistence.saved ? "saved" : "local-only");
-        } else {
-          setSyncState(response.persistence.warning ? "local-only" : "idle");
+        if (response.sessions.length === 0) {
+          const fallback = await loadLearningSession().catch(() => null);
+          if (cancelled || !fallback?.session) return;
+          setCourseLibrary([fallback.session]);
+          setLibraryState(fallback.persistence.saved ? "saved" : "local-only");
+          setSyncState(fallback.persistence.saved ? "saved" : "local-only");
         }
       } catch (error) {
         if (cancelled) return;
         setSyncWarning(error instanceof Error ? error.message : "Learning resume failed.");
+        setLibraryState("local-only");
         setSyncState("local-only");
       }
     }
 
-    void restoreSession();
+    void restoreSessions();
     return () => {
       cancelled = true;
     };
   }, [account]);
 
-  function applySessionRecord(record: LearningSessionRecord) {
+  useEffect(() => {
+    if (!account || courseLibrary.length === 0) return;
+
+    if (requestedCourseId) {
+      const requested = courseLibrary.find((course) => course.module_id === requestedCourseId);
+      if (requested) {
+        applySessionRecord(requested, { openModule: true, lessonId: requestedLessonId });
+      } else if (libraryState !== "loading") {
+        setSyncWarning("That course could not be found for this Google account.");
+        setLearnScreenMode("select");
+      }
+      return;
+    }
+
+    if (!moduleState && activeTab !== "landing") {
+      applySessionRecord(courseLibrary[0], { openModule: activeTab !== "learn" });
+    }
+  }, [account, activeTab, courseLibrary, libraryState, moduleState, requestedCourseId, requestedLessonId]);
+
+  function navigateToTab(tab: TabId) {
+    const path = tabPath(tab);
+    pushAppPath(path);
+    setActiveTab(tab);
+    setRequestedCourseId(null);
+    setRequestedLessonId(null);
+    if (tab === "learn") {
+      setLearnScreenMode("select");
+    }
+  }
+
+  function navigateToCourse(courseId: string, lessonId?: string | null) {
+    const safeCourseId = encodeURIComponent(courseId);
+    const lessonPath = lessonId ? `/lessons/${encodeURIComponent(lessonId)}` : "";
+    pushAppPath(`/courses/${safeCourseId}${lessonPath}`);
+    setActiveTab("learn");
+    setRequestedCourseId(courseId);
+    setRequestedLessonId(lessonId ?? null);
+    setLearnScreenMode("module");
+  }
+
+  function applySessionRecord(
+    record: LearningSessionRecord,
+    options: { openModule?: boolean; lessonId?: string | null } = {},
+  ) {
     const ecosystem = ecosystemById(asEcosystemId(record.ecosystem_id) ?? "zcash");
     const intents = record.learning_intents.length > 0 ? record.learning_intents : parseIntents(record.learner_goal);
+    const nextLessonIndex = options.lessonId
+      ? Math.max(0, record.module.lessons.findIndex((lesson) => lesson.id === options.lessonId))
+      : Math.min(record.active_lesson_index, Math.max(record.module.lessons.length - 1, 0));
     setEcosystemId(ecosystem.id);
     setTopic(record.topic || ecosystem.defaultTopic);
     setProfile(record.learning_profile || record.background || "Vibecoder");
@@ -243,9 +383,13 @@ export function VibeQuestApp({
       interests: record.selected_interests,
       learnerGoal: record.learner_goal,
       module: record.module,
+      generationStatus: record.module.lessons.length >= TOTAL_LEARNING_MODULES ? "complete" : "ready",
+      totalLessons: TOTAL_LEARNING_MODULES,
     });
-    setLearnScreenMode("module");
-    setActiveLessonIndex(Math.min(record.active_lesson_index, Math.max(record.module.lessons.length - 1, 0)));
+    if (options.openModule) {
+      setLearnScreenMode("module");
+    }
+    setActiveLessonIndex(nextLessonIndex < 0 ? 0 : nextLessonIndex);
     setAnswers(record.checkpoint_answers ?? {});
     setTutorMessages(record.tutor_messages.map(tutorMessageFromDto));
   }
@@ -259,6 +403,7 @@ export function VibeQuestApp({
   async function startGeneration() {
     if (!account) {
       setGenerationError("Sign in with Google before generating lessons.");
+      navigateToTab("learn");
       return;
     }
     const trimmedTopic = topic.trim();
@@ -267,6 +412,8 @@ export function VibeQuestApp({
       return;
     }
 
+    const runId = createCourseId();
+    generationRunRef.current = runId;
     setGenerationState("loading");
     setGenerationError(null);
     setSyncWarning(null);
@@ -274,46 +421,93 @@ export function VibeQuestApp({
     setTutorQuestion("");
     setTutorError(null);
     setQuestState(null);
+    setAnswers({});
+    setActiveLessonIndex(0);
     setLearnScreenMode("module");
+    navigateToTab("learn");
+
+    const request = {
+      ecosystem_id: selectedEcosystem.id,
+      path_id: selectedEcosystem.pathId,
+      topic: trimmedTopic,
+      learning_profile: profile,
+      learning_intents: intentList,
+      interests: selectedEcosystem.interests,
+      learner_goal: buildLearnerGoal(selectedEcosystem, trimmedTopic, intentList),
+      background: profile,
+      pace,
+    };
 
     try {
-      const learnerGoal = buildLearnerGoal(selectedEcosystem, trimmedTopic, intentList);
-      const response = await generateLearningModule({
-        ecosystem_id: selectedEcosystem.id,
-        path_id: selectedEcosystem.pathId,
-        topic: trimmedTopic,
-        learning_profile: profile,
-        learning_intents: intentList,
-        interests: selectedEcosystem.interests,
-        learner_goal: learnerGoal,
-        background: profile,
-        pace,
-      });
+      const first = await generateLearningLesson({ ...request, lesson_index: 0 });
+      if (generationRunRef.current !== runId) return;
 
-      setModuleState({
-        id: response.module_id,
-        source: response.source,
-        warning: response.warning,
+      const firstModuleState: ModuleState = {
+        id: runId,
+        source: first.source,
+        warning: first.warning,
         ecosystem: selectedEcosystem,
         topic: trimmedTopic,
         profile,
         pace,
         intents: intentList,
         interests: selectedEcosystem.interests,
-        learnerGoal,
-        module: response.module,
-      });
-      setActiveLessonIndex(0);
-      setAnswers({});
-      setSyncState(response.persistence.saved ? "saved" : "local-only");
-      setSyncWarning(response.persistence.warning ?? response.warning);
+        learnerGoal: request.learner_goal,
+        module: moduleFromGeneratedLesson(first),
+        generationStatus: "generating",
+        totalLessons: TOTAL_LEARNING_MODULES,
+      };
+
+      setModuleState(firstModuleState);
+      setGenerationState("background");
       setLearnScreenMode("module");
-      setActiveTab("learn");
+      navigateToCourse(firstModuleState.id, first.lesson.id);
+      await persistLearningState(firstModuleState, {}, 0, []);
+      void continueProgressiveGeneration(runId, firstModuleState, request, 1);
     } catch (error) {
-      setLearnScreenMode("select");
-      setGenerationError(error instanceof Error ? error.message : "Lesson generation failed.");
-    } finally {
+      if (generationRunRef.current === runId) {
+        setLearnScreenMode("select");
+        setGenerationError(error instanceof Error ? error.message : "Lesson generation failed.");
+        setGenerationState("idle");
+      }
+    }
+  }
+
+  async function continueProgressiveGeneration(
+    runId: string,
+    initialState: ModuleState,
+    request: Omit<Parameters<typeof generateLearningLesson>[0], "lesson_index">,
+    startIndex: number,
+  ) {
+    let currentState = initialState;
+    try {
+      for (let lessonIndex = startIndex; lessonIndex < TOTAL_LEARNING_MODULES; lessonIndex += 1) {
+        const response = await generateLearningLesson({ ...request, lesson_index: lessonIndex });
+        if (generationRunRef.current !== runId) return;
+        currentState = appendGeneratedLesson(currentState, response.lesson, response.warning);
+        setModuleState((existing) => (existing?.id === runId ? currentState : existing));
+        await persistLearningState(
+          currentState,
+          answersRef.current,
+          activeLessonIndexRef.current,
+          tutorMessagesRef.current,
+        );
+      }
+      if (generationRunRef.current !== runId) return;
+      const completeState = { ...currentState, generationStatus: "complete" as const };
+      setModuleState((existing) => (existing?.id === runId ? completeState : existing));
       setGenerationState("idle");
+      await persistLearningState(
+        completeState,
+        answersRef.current,
+        activeLessonIndexRef.current,
+        tutorMessagesRef.current,
+      );
+    } catch (error) {
+      if (generationRunRef.current !== runId) return;
+      setGenerationState("idle");
+      setModuleState((existing) => existing?.id === runId ? { ...existing, generationStatus: "error" } : existing);
+      setGenerationError(error instanceof Error ? error.message : "Some modules could not be generated yet.");
     }
   }
 
@@ -323,7 +517,7 @@ export function VibeQuestApp({
     nextLessonIndex = activeLessonIndex,
     nextTutorMessages = tutorMessages,
   ) {
-    if (!account || !nextModuleState) return;
+    if (!account || !nextModuleState) return null;
     setSyncState("saving");
     try {
       const response = await saveLearningSession({
@@ -344,14 +538,29 @@ export function VibeQuestApp({
       });
       setSyncState(response.persistence.saved ? "saved" : "local-only");
       setSyncWarning(response.persistence.warning);
+      const savedSession = response.session;
+      if (savedSession) {
+        setCourseLibrary((courses) => upsertCourse(courses, savedSession));
+      }
+      return savedSession;
     } catch (error) {
       setSyncState("local-only");
       setSyncWarning(error instanceof Error ? error.message : "Learning save failed.");
+      return null;
     }
   }
 
+  function openCourse(record: LearningSessionRecord) {
+    applySessionRecord(record, { openModule: true });
+    navigateToCourse(record.module_id, record.module.lessons[record.active_lesson_index]?.id ?? record.module.lessons[0]?.id ?? null);
+  }
+
   function chooseLesson(index: number) {
+    if (!moduleState) return;
+    const lesson = moduleState.module.lessons[index];
+    if (!lesson) return;
     setActiveLessonIndex(index);
+    navigateToCourse(moduleState.id, lesson.id);
     void persistLearningState(moduleState, answers, index, tutorMessages);
   }
 
@@ -377,6 +586,10 @@ export function VibeQuestApp({
         question,
       });
       appendTutorAnswer(question, response.answer);
+      const savedSession = response.session;
+      if (savedSession) {
+        setCourseLibrary((courses) => upsertCourse(courses, savedSession));
+      }
       setSyncState(response.persistence.saved ? "saved" : "local-only");
       setSyncWarning(response.persistence.warning);
       setTutorQuestion("");
@@ -453,7 +666,7 @@ export function VibeQuestApp({
         runnerSubmission: null,
         runnerError: null,
       });
-      setActiveTab("workbench");
+      navigateToTab("workbench");
     } catch (error) {
       setQuestError(error instanceof Error ? error.message : "Quest generation failed.");
     } finally {
@@ -515,9 +728,30 @@ export function VibeQuestApp({
       <LandingView
         account={account}
         authConfigured={authConfigured}
-        onEnter={() => setActiveTab(account ? "dashboard" : "learn")}
-        onLearn={() => setActiveTab("learn")}
+        onEnter={() => navigateToTab(account ? "dashboard" : "learn")}
+        onLearn={() => navigateToTab("learn")}
       />
+    );
+  }
+
+  if (!account) {
+    return (
+      <div className="min-h-screen overflow-x-hidden bg-[#030d0b] font-sans text-on-surface">
+        <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#030b0a]/96 backdrop-blur-md">
+          <div className="mx-auto flex h-[70px] items-center justify-between gap-4 px-6">
+            <button type="button" onClick={() => navigateToTab("landing")} className="flex min-w-0 items-center gap-3 text-left">
+              <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+                <span className="absolute top-1 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue shadow-[0_0_18px_rgba(0,240,255,0.28)]" />
+                <span className="absolute top-3 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/85" />
+                <span className="absolute top-5 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/65" />
+              </span>
+              <span className="block truncate text-[22px] font-black tracking-[-0.03em] text-white">VibeQuest</span>
+            </button>
+            <AccountControl account={account} authConfigured={authConfigured} />
+          </div>
+        </header>
+        <ProtectedLoginView authConfigured={authConfigured} />
+      </div>
     );
   }
 
@@ -532,7 +766,7 @@ export function VibeQuestApp({
           <div className="mx-auto grid h-[70px] max-w-none grid-cols-[1fr_auto_1fr] items-center gap-4 px-6">
             <button
               type="button"
-              onClick={() => setActiveTab("landing")}
+              onClick={() => navigateToTab("landing")}
               className="flex min-w-0 items-center gap-3 text-left"
             >
               <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
@@ -548,7 +782,7 @@ export function VibeQuestApp({
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => navigateToTab(tab.id)}
                   className={
                     activeTab === tab.id
                       ? "text-sm font-semibold text-electric-blue"
@@ -570,7 +804,7 @@ export function VibeQuestApp({
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => navigateToTab(tab.id)}
                 className={
                   activeTab === tab.id
                     ? "whitespace-nowrap rounded-md bg-electric-blue/10 px-3 py-1.5 text-xs font-medium text-electric-blue"
@@ -588,6 +822,7 @@ export function VibeQuestApp({
         <DashboardView
           account={account}
           moduleState={moduleState}
+          courseLibrary={courseLibrary}
           completedLessons={completedLessons}
           syncState={syncState}
           syncWarning={syncWarning}
@@ -595,10 +830,11 @@ export function VibeQuestApp({
           activeLessonPassed={activeLessonPassed}
           activeLessonIndex={activeLessonIndex}
           answers={answers}
-          onLearn={() => setActiveTab("learn")}
-          onQuest={() => setActiveTab("quest-run")}
-          onWorkbench={() => setActiveTab("workbench")}
-          onShip={() => setActiveTab("ship-gate")}
+          onLearn={() => navigateToTab("learn")}
+          onQuest={() => navigateToTab("quest-run")}
+          onWorkbench={() => navigateToTab("workbench")}
+          onShip={() => navigateToTab("ship-gate")}
+          onOpenCourse={openCourse}
         />
       ) : null}
       {activeTab === "learn" ? (
@@ -606,7 +842,13 @@ export function VibeQuestApp({
           account={account}
           authConfigured={authConfigured}
           learnScreenMode={learnScreenMode}
-          onBackToSelect={() => setLearnScreenMode("select")}
+          onBackToSelect={() => {
+            setLearnScreenMode("select");
+            navigateToTab("learn");
+          }}
+          courseLibrary={courseLibrary}
+          libraryState={libraryState}
+          onOpenCourse={openCourse}
           ecosystems={ECOSYSTEMS}
           selectedEcosystem={selectedEcosystem}
           chooseEcosystem={chooseEcosystem}
@@ -651,8 +893,8 @@ export function VibeQuestApp({
           questError={questError}
           questGenerationState={questGenerationState}
           onGenerateQuest={() => void startLessonQuest()}
-          onOpenLearn={() => setActiveTab("learn")}
-          onOpenWorkbench={() => setActiveTab("workbench")}
+          onOpenLearn={() => navigateToTab("learn")}
+          onOpenWorkbench={() => navigateToTab("workbench")}
         />
       ) : null}
       {activeTab === "workbench" ? (
@@ -660,15 +902,38 @@ export function VibeQuestApp({
           moduleState={moduleState}
           questState={questState}
           setQuestState={setQuestState}
-          onOpenQuestRun={() => setActiveTab("quest-run")}
+          onOpenQuestRun={() => navigateToTab("quest-run")}
           onVerifyWorkspace={verifyWorkspace}
           onSubmitRunner={() => void submitSelectedFileToRunner()}
           onRefreshRunner={() => void refreshRunnerSubmission()}
           runnerSubmitting={runnerSubmitting}
         />
       ) : null}
-      {activeTab === "ship-gate" ? <ShipGateView questState={questState} moduleState={moduleState} onOpenWorkbench={() => setActiveTab("workbench")} /> : null}
+      {activeTab === "ship-gate" ? <ShipGateView questState={questState} moduleState={moduleState} onOpenWorkbench={() => navigateToTab("workbench")} /> : null}
     </div>
+  );
+}
+
+
+function ProtectedLoginView({ authConfigured }: { authConfigured: boolean }) {
+  const path = typeof window === "undefined" ? "/dashboard" : `${window.location.pathname}${window.location.search}`;
+  return (
+    <main className="flex min-h-[calc(100vh-70px)] items-center justify-center bg-[#03100e] px-5 py-12 text-white">
+      <section className="w-full max-w-2xl rounded-2xl border border-electric-blue/20 bg-[#071410] p-8 text-center shadow-[0_0_60px_rgba(0,240,255,0.06)] sm:p-10">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-electric-blue/25 bg-electric-blue/10 text-electric-blue">
+          <LockKeyhole className="h-7 w-7" aria-hidden="true" />
+        </div>
+        <p className="mt-6 font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Protected learning workspace</p>
+        <h1 className="mt-3 text-3xl font-black tracking-[-0.045em] text-white sm:text-4xl">Sign in with Google to continue</h1>
+        <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-white/58">
+          Dashboard, Learn, Quest Run, Workbench, and Ship Gate are private learner surfaces. After login, VibeQuest returns you to <span className="text-electric-blue">{path}</span>.
+        </p>
+        <div className="mt-7 flex justify-center">
+          <AccountControl account={null} authConfigured={authConfigured} />
+        </div>
+        {!authConfigured ? <Notice tone="red" text="Google authentication is not configured in this deployment." /> : null}
+      </section>
+    </main>
   );
 }
 
@@ -995,6 +1260,7 @@ function LandingStat({ value, label }: { value: string; label: string }) {
 function DashboardView({
   account,
   moduleState,
+  courseLibrary,
   completedLessons,
   syncState,
   syncWarning,
@@ -1006,9 +1272,11 @@ function DashboardView({
   onQuest,
   onWorkbench,
   onShip,
+  onOpenCourse,
 }: {
   account: AccountSummary | null;
   moduleState: ModuleState | null;
+  courseLibrary: LearningSessionRecord[];
   completedLessons: number;
   syncState: SyncState;
   syncWarning: string | null;
@@ -1020,20 +1288,26 @@ function DashboardView({
   onQuest: () => void;
   onWorkbench: () => void;
   onShip: () => void;
+  onOpenCourse: (course: LearningSessionRecord) => void;
 }) {
   const lessonCount = moduleState?.module.lessons.length ?? 0;
-  const checkpointValue = lessonCount ? `${completedLessons} / ${lessonCount}` : "0 / 0";
-  const activeTrackId = moduleState?.ecosystem.id ?? "zcash";
-  const activeTrackLabel = moduleState?.ecosystem.label ?? "Zcash";
-  const activeTrackDetail = moduleState ? syncStateLabel(syncState) : "Ready to start";
+  const libraryProgress = courseLibraryProgress(courseLibrary);
+  const latestCourse = courseLibrary[0] ?? null;
+  const [dailyGoal, setDailyGoal] = useState(1);
+  const [weeklyTarget, setWeeklyTarget] = useState(5);
+  const streak = courseLibraryStreak(courseLibrary);
+  const checkpointValue = libraryProgress.totalGenerated ? `${libraryProgress.totalCompleted} / ${libraryProgress.totalGenerated}` : "0 / 0";
+  const activeTrackId = moduleState?.ecosystem.id ?? asEcosystemId(latestCourse?.ecosystem_id) ?? "zcash";
   const questProgressSteps = questState
     ? 1 + (questState.workspaceVerified ? 1 : 0) + (questState.runnerSubmission ? 1 : 0)
     : 0;
   const questProgress = questState ? Math.round((questProgressSteps / 3) * 100) : 0;
   const nextAction = !account
     ? { label: "Continue Learning", detail: "Sign in with Google, then generate or resume an AI learning module.", action: onLearn }
+    : latestCourse && !moduleState
+      ? { label: "Resume Course", detail: "Open the most recently active saved course.", action: () => onOpenCourse(latestCourse) }
     : !moduleState
-      ? { label: "Continue Learning", detail: "Choose CKB, Fiber, or Zcash and let Core generate the first module.", action: onLearn }
+      ? { label: "Continue Learning", detail: "Choose Basics, CKB, Fiber, or Zcash and let Core generate the first module.", action: onLearn }
       : !activeLessonPassed
         ? { label: "Continue Learning", detail: "Resume the active lesson and pass its checkpoint.", action: onLearn }
         : !questState
@@ -1043,18 +1317,19 @@ function DashboardView({
             : { label: "Review Ship Gate", detail: "Review runner evidence and ship-readiness state.", action: onShip };
 
   const tracks = ECOSYSTEMS.map((ecosystem) => {
+    const ecosystemCourses = courseLibrary.filter((course) => asEcosystemId(course.ecosystem_id) === ecosystem.id);
+    const aggregate = courseLibraryProgress(ecosystemCourses);
     const active = ecosystem.id === activeTrackId;
-    const trackCompleted = active ? completedLessons : 0;
-    const trackTotal = active ? lessonCount : 0;
-    const trackProgress = trackTotal ? Math.round((trackCompleted / trackTotal) * 100) : 0;
+    const trackProgress = aggregate.totalGenerated ? Math.round((aggregate.totalCompleted / aggregate.totalGenerated) * 100) : 0;
     return {
       ecosystem,
       active,
-      completed: trackCompleted,
-      total: trackTotal,
+      completed: aggregate.totalCompleted,
+      total: aggregate.totalGenerated,
       progress: trackProgress,
-      status: active ? "Active" : "Open",
-      action: active && moduleState ? "Continue" : "Open Learn",
+      status: active ? "Active" : ecosystemCourses.length ? `${ecosystemCourses.length} course${ecosystemCourses.length === 1 ? "" : "s"}` : "Open",
+      action: ecosystemCourses[0] ? "Resume" : "Open Learn",
+      course: ecosystemCourses[0] ?? null,
     };
   });
 
@@ -1086,11 +1361,21 @@ function DashboardView({
     moduleState
       ? {
           tone: "bg-electric-blue",
-          title: "Module generated",
+          title: "Active course loaded",
           detail: moduleState.module.title,
           time: syncStateLabel(syncState),
         }
       : null,
+    ...courseLibrary.slice(0, 4).map((course) => {
+      const ecosystem = ecosystemById(asEcosystemId(course.ecosystem_id) ?? "zcash");
+      const progress = courseProgress(course);
+      return {
+        tone: progress.completed > 0 ? "bg-cyber-green" : "bg-electric-blue",
+        title: `${ecosystem.label} course saved`,
+        detail: `${course.module.title} · ${progress.completed}/${progress.total} complete`,
+        time: relativeActivityTime(course.updated_at),
+      };
+    }),
   ].filter(Boolean) as { tone: string; title: string; detail: string; time: string }[];
 
   return (
@@ -1103,7 +1388,7 @@ function DashboardView({
               Learn it, inspect it, <span className="text-electric-blue">then ship it.</span>
             </h1>
             <p className="mt-6 text-xl leading-8 text-white/58">
-              Three blockchain ecosystems. One learning system.
+              Four learning paths. One AI learning system.
             </p>
           </div>
           <button
@@ -1120,26 +1405,57 @@ function DashboardView({
           <DashboardStatCard
             title="Lessons Done"
             value={String(completedLessons)}
-            detail={`${lessonCount} generated in active module`}
+            detail={`${libraryProgress.totalGenerated} generated across saved courses`}
             icon={<BookOpen className="h-5 w-5 text-electric-blue" aria-hidden="true" />}
           />
           <DashboardStatCard
-            title="Active Track"
-            value={activeTrackLabel}
-            detail={activeTrackDetail}
+            title="Active Streak"
+            value={`${streak.current} day${streak.current === 1 ? "" : "s"}`}
+            detail={`Longest ${streak.longest} day${streak.longest === 1 ? "" : "s"} from saved activity`}
             icon={<Zap className="h-5 w-5 text-warning-amber" aria-hidden="true" />}
             outlined
           />
           <DashboardStatCard
             title="Checkpoints"
             value={checkpointValue}
-            detail={lessonCount ? "passed in current module" : "generate a module to begin"}
+            detail={libraryProgress.totalGenerated ? "passed across saved courses" : "generate a course to begin"}
             icon={<CheckCircle2 className="h-5 w-5 text-cyber-green" aria-hidden="true" />}
             outlined
           />
         </section>
 
         {syncWarning ? <Notice tone="amber" text={syncWarning} /> : null}
+
+        <section className="mt-7 rounded-2xl border border-white/[0.075] bg-[#111d1b] p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Streak Options</p>
+              <p className="mt-2 text-sm leading-6 text-white/55">Set the goal VibeQuest should use when judging your weekly learning rhythm. Current progress uses saved course activity only.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-white/[0.06] bg-[#020b0a] p-3">
+                <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Daily goal</span>
+                <div className="mt-2 flex gap-2">
+                  {[1, 2, 3].map((goal) => (
+                    <button key={goal} type="button" onClick={() => setDailyGoal(goal)} className={dailyGoal === goal ? "rounded-md bg-electric-blue px-3 py-2 text-xs font-black text-black" : "rounded-md border border-white/[0.08] px-3 py-2 text-xs font-bold text-white/55"}>
+                      {goal} lesson{goal === 1 ? "" : "s"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-xl border border-white/[0.06] bg-[#020b0a] p-3">
+                <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Weekly target</span>
+                <div className="mt-2 flex gap-2">
+                  {[3, 5, 7].map((goal) => (
+                    <button key={goal} type="button" onClick={() => setWeeklyTarget(goal)} className={weeklyTarget === goal ? "rounded-md bg-electric-blue px-3 py-2 text-xs font-black text-black" : "rounded-md border border-white/[0.08] px-3 py-2 text-xs font-bold text-white/55"}>
+                      {goal} days
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section className="mt-14">
           <div className="mb-7 flex items-center justify-between gap-4">
@@ -1148,7 +1464,7 @@ function DashboardView({
               Open Learn <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
-          <div className="grid gap-7 lg:grid-cols-3">
+          <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-4">
             {tracks.map((track) => (
               <DashboardTrackCard
                 key={track.ecosystem.id}
@@ -1159,7 +1475,7 @@ function DashboardView({
                 progress={track.progress}
                 status={track.status}
                 action={track.action}
-                onOpen={onLearn}
+                onOpen={track.course ? () => onOpenCourse(track.course) : onLearn}
               />
             ))}
           </div>
@@ -1432,7 +1748,10 @@ function LearnView(props: {
   intentText: string;
   setIntentText: (value: string) => void;
   intentList: string[];
-  generationState: "idle" | "loading";
+  courseLibrary: LearningSessionRecord[];
+  libraryState: SyncState;
+  onOpenCourse: (course: LearningSessionRecord) => void;
+  generationState: GenerationState;
   generationError: string | null;
   onGenerate: () => Promise<void>;
   moduleState: ModuleState | null;
@@ -1500,6 +1819,9 @@ function LearnView(props: {
       setPace={props.setPace}
       intentList={props.intentList}
       setIntentText={props.setIntentText}
+      courseLibrary={props.courseLibrary}
+      libraryState={props.libraryState}
+      onOpenCourse={props.onOpenCourse}
       generationError={props.generationError}
       onGenerate={props.onGenerate}
       syncWarning={props.syncWarning}
@@ -1521,6 +1843,9 @@ function LearningSelectView({
   setPace,
   intentList,
   setIntentText,
+  courseLibrary,
+  libraryState,
+  onOpenCourse,
   generationError,
   onGenerate,
   syncWarning,
@@ -1538,6 +1863,9 @@ function LearningSelectView({
   setPace: (pace: string) => void;
   intentList: string[];
   setIntentText: (value: string) => void;
+  courseLibrary: LearningSessionRecord[];
+  libraryState: SyncState;
+  onOpenCourse: (course: LearningSessionRecord) => void;
   generationError: string | null;
   onGenerate: () => Promise<void>;
   syncWarning: string | null;
@@ -1546,6 +1874,7 @@ function LearningSelectView({
   const configuringEcosystem = configuringEcosystemId
     ? ecosystems.find((ecosystem) => ecosystem.id === configuringEcosystemId) ?? selectedEcosystem
     : null;
+  const recentCourses = courseLibrary.slice(0, 4);
 
   function openConfigurator(ecosystem: EcosystemOption) {
     chooseEcosystem(ecosystem);
@@ -1570,27 +1899,65 @@ function LearningSelectView({
           <h1 className="text-[48px] font-black leading-none tracking-[-0.055em] text-white md:text-[50px]">
             Learning Mode
           </h1>
-          <p className="mx-auto mt-8 max-w-[680px] text-center text-[19px] leading-8 text-white/48">
-            Choose an ecosystem, name the topic, set your learning intent, then let Core
-            <span className="block">generate lessons.</span>
+          <p className="mx-auto mt-8 max-w-[760px] text-center text-[19px] leading-8 text-white/48">
+            Choose a learning path, resume saved courses, or generate a new AI course. The first module appears as soon as it is ready while the rest keeps generating.
           </p>
         </div>
 
-        <div className="mt-16 grid w-full gap-6 md:grid-cols-3">
-          {ecosystems.map((ecosystem) => (
-            <button
-              key={ecosystem.id}
-              type="button"
-              onClick={() => openConfigurator(ecosystem)}
-              className="group min-h-[258px] rounded-2xl border border-white/[0.075] bg-[#071410] p-8 text-left transition hover:-translate-y-0.5 hover:border-electric-blue/35 hover:bg-[#081915] hover:shadow-[0_0_42px_rgba(0,240,255,0.06)]"
-            >
-              <span className="flex h-[54px] w-[54px] items-center justify-center rounded-xl border border-white/[0.035] bg-[#020b0a] text-xl font-black text-electric-blue shadow-[0_0_24px_rgba(0,240,255,0.04)]">
-                {ecosystem.label.charAt(0)}
-              </span>
-              <span className="mt-7 block text-2xl font-black tracking-[-0.04em] text-white">{ecosystem.label}</span>
-              <span className="mt-4 block max-w-[290px] text-[15px] leading-6 text-white/48">{ecosystem.detail}</span>
-            </button>
-          ))}
+        {recentCourses.length > 0 ? (
+          <section className="mt-12 w-full rounded-2xl border border-electric-blue/20 bg-[#071410] p-5 text-left">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">My Courses</p>
+                <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-white">Resume saved learning</h2>
+              </div>
+              <span className="text-sm text-white/45">{syncStateLabel(libraryState)}</span>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {recentCourses.map((course) => {
+                const ecosystem = ecosystemById(asEcosystemId(course.ecosystem_id) ?? "zcash");
+                const progress = courseProgress(course);
+                return (
+                  <button
+                    key={course.module_id}
+                    type="button"
+                    onClick={() => onOpenCourse(course)}
+                    className="rounded-xl border border-white/[0.075] bg-[#020b0a] p-4 text-left transition hover:border-electric-blue/35 hover:bg-electric-blue/[0.035]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="rounded-md bg-electric-blue/10 px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-electric-blue">{ecosystem.label}</span>
+                      <span className="text-xs text-white/40">{progress.completed}/{progress.total} complete</span>
+                    </div>
+                    <h3 className="mt-3 line-clamp-2 text-base font-black leading-5 text-white">{course.module.title}</h3>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/48">{course.topic || course.module.outcome}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        <div className="mt-12 grid w-full gap-6 md:grid-cols-2 xl:grid-cols-4">
+          {ecosystems.map((ecosystem) => {
+            const count = courseLibrary.filter((course) => asEcosystemId(course.ecosystem_id) === ecosystem.id).length;
+            return (
+              <button
+                key={ecosystem.id}
+                type="button"
+                onClick={() => openConfigurator(ecosystem)}
+                className="group min-h-[258px] rounded-2xl border border-white/[0.075] bg-[#071410] p-8 text-left transition hover:-translate-y-0.5 hover:border-electric-blue/35 hover:bg-[#081915] hover:shadow-[0_0_42px_rgba(0,240,255,0.06)]"
+              >
+                <span className="flex h-[54px] w-[54px] items-center justify-center rounded-xl border border-white/[0.035] bg-[#020b0a] text-xl font-black text-electric-blue shadow-[0_0_24px_rgba(0,240,255,0.04)]">
+                  {ecosystem.label.charAt(0)}
+                </span>
+                <span className="mt-7 block text-2xl font-black tracking-[-0.04em] text-white">{ecosystem.label}</span>
+                <span className="mt-4 block max-w-[290px] text-[15px] leading-6 text-white/48">{ecosystem.detail}</span>
+                <span className="mt-7 inline-flex rounded-full border border-electric-blue/25 px-3 py-1 text-xs font-black text-electric-blue">
+                  {count ? `Generate new · ${count} saved` : "Generate new course"}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -1651,8 +2018,8 @@ function SessionConfigModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-[#010807]/72 px-5 pt-[60px] text-white backdrop-blur-[10px]">
-      <section className="w-full max-w-[672px] overflow-hidden rounded-2xl border border-white/[0.085] bg-[#071410] shadow-[0_32px_90px_rgba(0,0,0,0.55)]">
+    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-[#010807]/72 px-4 py-6 text-white backdrop-blur-[10px] sm:px-5 sm:pt-[60px]">
+      <section className="w-full max-w-[760px] overflow-hidden rounded-2xl border border-white/[0.085] bg-[#071410] shadow-[0_32px_90px_rgba(0,0,0,0.55)]">
         <header className="flex h-[86px] items-center justify-between border-b border-white/[0.075] px-6">
           <div className="flex items-center gap-4">
             <span className="rounded-md border border-electric-blue/25 bg-electric-blue/10 px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-electric-blue">
@@ -1673,6 +2040,22 @@ function SessionConfigModal({
         <div className="px-8 py-8">
           <label className="grid gap-3">
             <span className="text-sm font-black text-white">Topic</span>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {ecosystem.suggestedTopics.map((suggestedTopic) => (
+                <button
+                  key={suggestedTopic}
+                  type="button"
+                  onClick={() => setTopic(suggestedTopic)}
+                  className={
+                    topic === suggestedTopic
+                      ? "rounded-lg border border-electric-blue bg-electric-blue/10 p-3 text-left text-sm leading-5 text-electric-blue"
+                      : "rounded-lg border border-white/[0.06] bg-[#020b0a] p-3 text-left text-sm leading-5 text-white/55 transition hover:border-electric-blue/30 hover:text-white"
+                  }
+                >
+                  {suggestedTopic}
+                </button>
+              ))}
+            </div>
             <textarea
               value={topic}
               onChange={(event) => setTopic(event.target.value)}
@@ -1749,6 +2132,9 @@ function SessionConfigModal({
           {!authConfigured ? <Notice tone="red" text="Google authentication configuration is incomplete in the running web process." /> : null}
           {generationError ? <Notice tone="red" text={generationError} /> : null}
           {syncWarning ? <Notice tone="amber" text={syncWarning} /> : null}
+          <p className="mt-5 rounded-xl border border-electric-blue/15 bg-electric-blue/[0.035] p-4 text-sm leading-6 text-white/55">
+            Generation is progressive: the first usable module opens as soon as Core finishes it. The remaining modules continue generating and appear in the pathway as they are saved.
+          </p>
         </div>
 
         <footer className="border-t border-white/[0.065] bg-[#081512] px-6 py-6">
@@ -1758,7 +2144,7 @@ function SessionConfigModal({
             className="flex h-[60px] w-full items-center justify-center gap-3 rounded-xl bg-electric-blue text-lg font-black text-black shadow-[0_0_32px_rgba(0,240,255,0.14)] transition hover:brightness-110"
           >
             <Zap className="h-5 w-5 fill-black" aria-hidden="true" />
-            Generate Module
+            Generate Course
           </button>
         </footer>
       </section>
@@ -1777,7 +2163,7 @@ function LearningGenerationLoader() {
           <Hexagon className="h-[70px] w-[70px] text-electric-blue drop-shadow-[0_0_24px_rgba(0,240,255,0.45)]" strokeWidth={3} aria-hidden="true" />
         </div>
         <p className="mt-7 font-mono text-[19px] tracking-[0.16em] text-electric-blue">
-          Generating your learning modules...
+          Generating module 1 so you can start...
         </p>
         <div className="mt-20 h-px w-[190px] overflow-hidden bg-electric-blue/8">
           <span className="block h-full w-1/2 animate-pulse bg-electric-blue/45" />
@@ -1844,11 +2230,13 @@ function GeneratedModuleView({
 
   const paragraphs = [activeLesson.why_it_matters, ...activeLesson.explanation.split(/\n{2,}/)]
     .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-    .slice(0, 4);
+    .filter(Boolean);
+  const pendingLessonCount = Math.max(moduleState.totalLessons - learningModule.lessons.length, 0);
+  const lessonResources = activeLesson.resources && activeLesson.resources.length > 0 ? activeLesson.resources : learningModule.resources;
+  const lessonSubmodules = activeLesson.submodules ?? [];
 
   return (
-    <main className="min-h-screen bg-[#03100e] text-white lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+    <main className="min-h-screen bg-[#03100e] text-white lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
       <aside className="border-b border-white/[0.07] bg-[#061410] lg:min-h-screen lg:border-b-0 lg:border-r">
         <div className="px-4 py-5">
           <button
@@ -1856,12 +2244,12 @@ function GeneratedModuleView({
             onClick={onBackToSelect}
             className="mb-4 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-white/45 transition hover:text-electric-blue"
           >
-            ‹ Back to select
+            Learning Home
           </button>
           <p className="line-clamp-2 font-mono text-[10px] font-black uppercase leading-4 tracking-[0.14em] text-electric-blue">
             {moduleState.ecosystem.label} · {moduleState.topic}
           </p>
-          <h2 className="mt-3 text-base font-black text-white">Module Pathway</h2>
+          <h2 className="mt-3 text-base font-black text-white">Course Pathway</h2>
         </div>
 
         <nav className="space-y-3 px-3 pb-6" aria-label="Module pathway">
@@ -1897,20 +2285,72 @@ function GeneratedModuleView({
               </button>
             );
           })}
+          {pendingLessonCount > 0 ? (
+            <div className="rounded-lg border border-dashed border-electric-blue/25 bg-electric-blue/[0.035] px-4 py-4">
+              <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-electric-blue">
+                {pendingLessonCount} module{pendingLessonCount === 1 ? "" : "s"} still generating
+              </p>
+              <p className="mt-2 text-xs leading-5 text-white/45">You can keep learning while Core saves the remaining modules.</p>
+            </div>
+          ) : null}
         </nav>
       </aside>
 
       <section className="min-w-0 px-6 py-10 lg:px-0">
-        <div className="mx-auto w-full max-w-[820px]">
+        <div className="mx-auto w-full max-w-[920px]">
           <article>
             <h1 className="text-3xl font-black leading-tight tracking-[-0.045em] text-white md:text-[36px]">
               {activeLesson.title}
             </h1>
+            {moduleState.generationStatus === "generating" ? (
+              <div className="mt-5 rounded-xl border border-electric-blue/25 bg-electric-blue/[0.045] p-4 text-sm leading-6 text-electric-blue">
+                Module 1 is ready. {pendingLessonCount > 0 ? `${pendingLessonCount} more module${pendingLessonCount === 1 ? "" : "s"} are still being generated and will appear in the pathway.` : "Final save is completing."}
+              </div>
+            ) : moduleState.generationStatus === "error" ? (
+              <div className="mt-5 rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-4 text-sm leading-6 text-warning-amber">
+                This course is usable, but some remaining modules did not finish generating. You can continue the available modules and regenerate later.
+              </div>
+            ) : null}
             <div className="mt-6 space-y-6 text-base leading-8 text-white/68">
               {paragraphs.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
             </div>
+
+            {lessonSubmodules.length > 0 ? (
+              <section className="mt-8 rounded-xl border border-white/[0.075] bg-[#071410] p-5">
+                <h2 className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Submodules</h2>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {lessonSubmodules.map((submodule) => (
+                    <div key={submodule.id} className="rounded-lg border border-white/[0.06] bg-[#020b0a] p-4">
+                      <h3 className="text-sm font-black text-white">{submodule.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-white/55">{submodule.summary}</p>
+                      {submodule.children.length > 0 ? (
+                        <ul className="mt-3 space-y-2 text-xs leading-5 text-white/45">
+                          {submodule.children.map((child) => (
+                            <li key={child.id}>• {child.title}: {child.summary}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {lessonResources.length > 0 ? (
+              <section className="mt-8 rounded-xl border border-white/[0.075] bg-[#071410] p-5">
+                <h2 className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Related resources</h2>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {lessonResources.map((resource) => (
+                    <a key={`${resource.title}-${resource.url}`} href={resource.url} target="_blank" rel="noreferrer" className="rounded-lg border border-white/[0.06] bg-[#020b0a] p-4 transition hover:border-electric-blue/35">
+                      <span className="block text-sm font-black text-white">{resource.title}</span>
+                      <span className="mt-2 block text-sm leading-6 text-white/55">{resource.reason}</span>
+                    </a>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             <div className="mt-8 overflow-hidden rounded-md border border-white/[0.075] bg-[#020b0a]">
               <div className="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.035] px-3">
@@ -2404,6 +2844,181 @@ function ExplainerRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+
+function currentAppRoute(pathOverride?: string | null): { tab: TabId; courseId: string | null; lessonId: string | null } {
+  const rawPath = pathOverride ?? (typeof window === "undefined" ? "/" : window.location.pathname);
+  const pathname = rawPath.replace(/\/+$/, "") || "/";
+  const parts = pathname.split("/").filter(Boolean);
+
+  if (pathname === "/") return { tab: "landing", courseId: null, lessonId: null };
+  if (parts[0] === "dashboard") return { tab: "dashboard", courseId: null, lessonId: null };
+  if (parts[0] === "quest-run") return { tab: "quest-run", courseId: null, lessonId: null };
+  if (parts[0] === "workbench") return { tab: "workbench", courseId: null, lessonId: null };
+  if (parts[0] === "ship-gate") return { tab: "ship-gate", courseId: null, lessonId: null };
+  if (parts[0] === "courses" && parts[1]) {
+    const lessonMarker = parts.indexOf("lessons");
+    return {
+      tab: "learn",
+      courseId: decodeURIComponent(parts[1]),
+      lessonId: lessonMarker >= 0 && parts[lessonMarker + 1] ? decodeURIComponent(parts[lessonMarker + 1]) : null,
+    };
+  }
+  if (parts[0] === "learn") return { tab: "learn", courseId: null, lessonId: null };
+
+  return { tab: "landing", courseId: null, lessonId: null };
+}
+
+function tabPath(tab: TabId): string {
+  if (tab === "landing") return "/";
+  return `/${tab}`;
+}
+
+function pushAppPath(path: string) {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname === path) return;
+  window.history.pushState({}, "", path);
+}
+
+function createCourseId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `course-${crypto.randomUUID()}`;
+  }
+  return `course-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function moduleFromGeneratedLesson(response: Awaited<ReturnType<typeof generateLearningLesson>>): LearningModuleDto {
+  return {
+    title: response.module_title,
+    learner_profile: response.learner_profile,
+    outcome: response.outcome,
+    lessons: [response.lesson],
+    capstone_quest_prompt: response.capstone_quest_prompt,
+    resources: response.resources,
+  };
+}
+
+function appendGeneratedLesson(
+  moduleState: ModuleState,
+  lesson: LearningLessonDto,
+  warning: string | null,
+): ModuleState {
+  const lessons = [...moduleState.module.lessons.filter((item) => item.id !== lesson.id), lesson]
+    .sort((a, b) => lessonOrder(a.id) - lessonOrder(b.id));
+  return {
+    ...moduleState,
+    warning,
+    module: {
+      ...moduleState.module,
+      lessons,
+    },
+    generationStatus: lessons.length >= moduleState.totalLessons ? "complete" : "generating",
+  };
+}
+
+function lessonOrder(lessonId: string): number {
+  const match = lessonId.match(/module-(\d+)/);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function upsertCourse(courses: LearningSessionRecord[], course: LearningSessionRecord): LearningSessionRecord[] {
+  return [course, ...courses.filter((item) => item.module_id !== course.module_id)]
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+}
+
+function courseProgress(course: LearningSessionRecord) {
+  const total = course.module.lessons.length;
+  const completed = completedLessonCount(course.module, course.checkpoint_answers ?? {});
+  return { total, completed, percent: total ? Math.round((completed / total) * 100) : 0 };
+}
+
+
+
+function relativeActivityTime(value: string | null | undefined): string {
+  if (!value) return "Saved activity";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Saved activity";
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 60_000) return "Just now";
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function courseLibraryStreak(courses: LearningSessionRecord[]) {
+  const daySet = new Set<string>();
+  for (const course of courses) {
+    const updated = dateKey(course.updated_at);
+    const created = dateKey(course.created_at);
+    if (updated) daySet.add(updated);
+    if (created) daySet.add(created);
+  }
+
+  const today = startOfLocalDay(new Date());
+  let current = 0;
+  for (let offset = 0; offset < 365; offset += 1) {
+    const key = dateKeyFromDate(addDays(today, -offset));
+    if (!daySet.has(key)) break;
+    current += 1;
+  }
+
+  const sorted = [...daySet].sort();
+  let longest = 0;
+  let run = 0;
+  let previous: Date | null = null;
+  for (const key of sorted) {
+    const date = new Date(`${key}T00:00:00`);
+    if (previous && date.getTime() - previous.getTime() === 86_400_000) {
+      run += 1;
+    } else {
+      run = 1;
+    }
+    longest = Math.max(longest, run);
+    previous = date;
+  }
+
+  return { current, longest };
+}
+
+function dateKey(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return dateKeyFromDate(date);
+}
+
+function dateKeyFromDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date: Date, days: number): Date {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+function courseLibraryProgress(courses: LearningSessionRecord[]) {
+  return courses.reduce(
+    (acc, course) => {
+      const progress = courseProgress(course);
+      return {
+        totalGenerated: acc.totalGenerated + progress.total,
+        totalCompleted: acc.totalCompleted + progress.completed,
+      };
+    },
+    { totalGenerated: 0, totalCompleted: 0 },
+  );
+}
+
 function parseIntents(value: string): string[] {
   const intents = value
     .split(/[\n,]/)
@@ -2441,11 +3056,11 @@ function completedLessonCount(module: LearningModuleDto | null, answers: Record<
 }
 
 function ecosystemById(id: EcosystemId): EcosystemOption {
-  return ECOSYSTEMS.find((item) => item.id === id) ?? ECOSYSTEMS[2];
+  return ECOSYSTEMS.find((item) => item.id === id) ?? ECOSYSTEMS.find((item) => item.id === "zcash") ?? ECOSYSTEMS[0];
 }
 
 function asEcosystemId(value: string | null | undefined): EcosystemId | null {
-  return value === "ckb" || value === "fiber" || value === "zcash" ? value : null;
+  return value === "basics" || value === "ckb" || value === "fiber" || value === "zcash" ? value : null;
 }
 
 function syncStateLabel(state: SyncState) {

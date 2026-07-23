@@ -1,4 +1,4 @@
-export type EcosystemId = "ckb" | "fiber" | "zcash";
+export type EcosystemId = "basics" | "ckb" | "fiber" | "zcash";
 export type QuestSource = "open-ai";
 
 export type PersistenceStatus = {
@@ -25,12 +25,21 @@ export type LearningCheckpointDto = {
   follow_up_question: string;
 };
 
+export type LearningSubmoduleDto = {
+  id: string;
+  title: string;
+  summary: string;
+  children: LearningSubmoduleDto[];
+};
+
 export type LearningLessonDto = {
   id: string;
   title: string;
   why_it_matters: string;
   explanation: string;
   concepts: string[];
+  submodules?: LearningSubmoduleDto[];
+  resources?: LearningResourceDto[];
   checkpoint: LearningCheckpointDto;
   quest_bridge: string;
 };
@@ -62,6 +71,22 @@ export type GenerateLearningModuleResponse = {
   module: LearningModuleDto;
   warning: string | null;
   persistence: PersistenceStatus;
+};
+
+export type GenerateLearningLessonRequest = GenerateLearningModuleRequest & {
+  lesson_index: number;
+};
+
+export type GenerateLearningLessonResponse = {
+  source: QuestSource;
+  module_title: string;
+  learner_profile: string;
+  outcome: string;
+  capstone_quest_prompt: string;
+  resources: LearningResourceDto[];
+  lesson: LearningLessonDto;
+  lesson_index: number;
+  warning: string | null;
 };
 
 export type TutorMessageDto = {
@@ -102,6 +127,11 @@ export type LearningSessionRecord = {
 
 export type LearningSessionResponse = {
   session: LearningSessionRecord | null;
+  persistence: PersistenceStatus;
+};
+
+export type LearningSessionsResponse = {
+  sessions: LearningSessionRecord[];
   persistence: PersistenceStatus;
 };
 
@@ -271,6 +301,18 @@ export async function generateLearningModule(
   return parseJsonResponse<GenerateLearningModuleResponse>(response);
 }
 
+export async function generateLearningLesson(
+  request: GenerateLearningLessonRequest,
+): Promise<GenerateLearningLessonResponse> {
+  const response = await fetch("/api/core/ai/learning/lesson", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  return parseJsonResponse<GenerateLearningLessonResponse>(response);
+}
+
 export async function loadLearningSession(): Promise<LearningSessionResponse> {
   const response = await fetch("/api/core/ai/learning/session", {
     method: "GET",
@@ -278,6 +320,15 @@ export async function loadLearningSession(): Promise<LearningSessionResponse> {
   });
 
   return parseJsonResponse<LearningSessionResponse>(response);
+}
+
+export async function loadLearningSessions(): Promise<LearningSessionsResponse> {
+  const response = await fetch("/api/core/ai/learning/sessions", {
+    method: "GET",
+    headers: { accept: "application/json" },
+  });
+
+  return parseJsonResponse<LearningSessionsResponse>(response);
 }
 
 export async function saveLearningSession(
