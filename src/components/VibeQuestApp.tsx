@@ -1529,23 +1529,23 @@ function GeneratedModuleView({
     .slice(0, 4);
 
   return (
-    <main className="min-h-screen bg-[#03100e] text-white lg:grid lg:grid-cols-[148px_minmax(0,1fr)]">
+    <main className="min-h-screen bg-[#03100e] text-white lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="border-b border-white/[0.07] bg-[#061410] lg:min-h-screen lg:border-b-0 lg:border-r">
-        <div className="px-1 py-4">
+        <div className="px-4 py-5">
           <button
             type="button"
             onClick={onBackToSelect}
-            className="mb-3 font-mono text-[8px] font-black uppercase tracking-[0.16em] text-white/45 transition hover:text-electric-blue"
+            className="mb-4 font-mono text-[11px] font-black uppercase tracking-[0.14em] text-white/45 transition hover:text-electric-blue"
           >
             ‹ Back to select
           </button>
-          <p className="truncate font-mono text-[7px] font-black uppercase tracking-[0.16em] text-electric-blue">
+          <p className="line-clamp-2 font-mono text-[10px] font-black uppercase leading-4 tracking-[0.14em] text-electric-blue">
             {moduleState.ecosystem.label} · {moduleState.topic}
           </p>
-          <h2 className="mt-2 text-[11px] font-black text-white">Module Pathway</h2>
+          <h2 className="mt-3 text-base font-black text-white">Module Pathway</h2>
         </div>
 
-        <nav className="space-y-2 px-2 pb-5" aria-label="Module pathway">
+        <nav className="space-y-3 px-3 pb-6" aria-label="Module pathway">
           {learningModule.lessons.map((lesson, index) => {
             const active = index === activeLessonIndex;
             const passed = lessonPassed(lesson);
@@ -1561,33 +1561,33 @@ function GeneratedModuleView({
                 disabled={locked}
                 className={
                   active
-                    ? "grid min-h-[56px] w-full grid-cols-[17px_minmax(0,1fr)_14px] gap-1 rounded-md border border-electric-blue/60 bg-electric-blue/10 px-2 py-2 text-left shadow-[0_0_24px_rgba(0,240,255,0.08)]"
+                    ? "grid min-h-[82px] w-full grid-cols-[30px_minmax(0,1fr)_20px] gap-3 rounded-lg border border-electric-blue/60 bg-electric-blue/10 px-4 py-4 text-left shadow-[0_0_24px_rgba(0,240,255,0.08)]"
                     : locked
-                      ? "grid min-h-[56px] w-full grid-cols-[17px_minmax(0,1fr)_14px] gap-1 rounded-md border border-transparent bg-[#06110e]/45 px-2 py-2 text-left opacity-35"
-                      : "grid min-h-[56px] w-full grid-cols-[17px_minmax(0,1fr)_14px] gap-1 rounded-md border border-white/[0.055] bg-[#030b0a] px-2 py-2 text-left transition hover:border-electric-blue/25"
+                      ? "grid min-h-[82px] w-full grid-cols-[30px_minmax(0,1fr)_20px] gap-3 rounded-lg border border-transparent bg-[#06110e]/45 px-4 py-4 text-left opacity-35"
+                      : "grid min-h-[82px] w-full grid-cols-[30px_minmax(0,1fr)_20px] gap-3 rounded-lg border border-white/[0.055] bg-[#030b0a] px-4 py-4 text-left transition hover:border-electric-blue/25"
                 }
               >
-                <span className="font-mono text-[9px] text-white/42">{String(index + 1).padStart(2, "0")}</span>
+                <span className="font-mono text-sm font-semibold text-white/42">{String(index + 1).padStart(2, "0")}</span>
                 <span className="min-w-0">
-                  <span className="line-clamp-2 text-[10px] font-medium leading-3 text-white/72">{lesson.title}</span>
-                  <span className={passed ? "mt-1 block font-mono text-[7px] font-black uppercase tracking-[0.14em] text-cyber-green" : active ? "mt-1 block font-mono text-[7px] font-black uppercase tracking-[0.14em] text-warning-amber" : "mt-1 block font-mono text-[7px] font-black uppercase tracking-[0.14em] text-white/28"}>
+                  <span className="line-clamp-2 text-sm font-semibold leading-5 text-white/78">{lesson.title}</span>
+                  <span className={passed ? "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-cyber-green" : active ? "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-warning-amber" : "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-white/35"}>
                     {status}
                   </span>
                 </span>
-                {passed ? <CheckCircle2 className="h-3.5 w-3.5 text-cyber-green" aria-hidden="true" /> : locked ? <LockKeyhole className="h-3.5 w-3.5 text-white/30" aria-hidden="true" /> : <ChevronRight className="h-3.5 w-3.5 text-electric-blue" aria-hidden="true" />}
+                {passed ? <CheckCircle2 className="h-5 w-5 text-cyber-green" aria-hidden="true" /> : locked ? <LockKeyhole className="h-5 w-5 text-white/30" aria-hidden="true" /> : <ChevronRight className="h-5 w-5 text-electric-blue" aria-hidden="true" />}
               </button>
             );
           })}
         </nav>
       </aside>
 
-      <section className="min-w-0 px-5 py-6 lg:px-0">
-        <div className="mx-auto w-full max-w-[680px]">
+      <section className="min-w-0 px-6 py-10 lg:px-0">
+        <div className="mx-auto w-full max-w-[820px]">
           <article>
-            <h1 className="text-[24px] font-black leading-tight tracking-[-0.045em] text-white md:text-[26px]">
+            <h1 className="text-3xl font-black leading-tight tracking-[-0.045em] text-white md:text-[36px]">
               {activeLesson.title}
             </h1>
-            <div className="mt-5 space-y-5 text-[13px] leading-6 text-white/60">
+            <div className="mt-6 space-y-6 text-base leading-8 text-white/68">
               {paragraphs.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
@@ -1595,10 +1595,10 @@ function GeneratedModuleView({
 
             <div className="mt-8 overflow-hidden rounded-md border border-white/[0.075] bg-[#020b0a]">
               <div className="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.035] px-3">
-                <ChevronRight className="h-3.5 w-3.5 text-electric-blue" aria-hidden="true" />
-                <span className="font-mono text-[8px] font-black uppercase tracking-[0.18em] text-white/35">lesson_manifest.json</span>
+                <ChevronRight className="h-5 w-5 text-electric-blue" aria-hidden="true" />
+                <span className="font-mono text-[11px] font-black uppercase tracking-[0.16em] text-white/40">lesson_manifest.json</span>
               </div>
-              <pre className="max-h-[300px] overflow-auto p-4 font-mono text-[11px] leading-5 text-white/72 scrollbar-none">
+              <pre className="max-h-[360px] overflow-auto p-5 font-mono text-[13px] leading-6 text-white/78 scrollbar-none">
                 <code>{formatLessonManifest(moduleState, activeLesson)}</code>
               </pre>
             </div>
@@ -1608,11 +1608,11 @@ function GeneratedModuleView({
 
           <section className="grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
             <div className="rounded-md border border-electric-blue/35 bg-[#071410] p-5 shadow-[0_-1px_0_0_rgba(0,240,255,0.7)]">
-              <div className="flex items-center gap-2 font-mono text-[9px] font-black uppercase tracking-[0.18em] text-electric-blue">
+              <div className="flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-electric-blue">
                 <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                 Checkpoint
               </div>
-              <p className="mt-5 text-[12px] font-semibold leading-5 text-white">
+              <p className="mt-5 text-[15px] font-semibold leading-6 text-white">
                 {activeLesson.checkpoint.question}
               </p>
               <div className="mt-5 space-y-3">
@@ -1635,21 +1635,21 @@ function GeneratedModuleView({
                               : "grid w-full grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-md border border-white/[0.055] bg-[#020b0a] px-3 py-3 text-left transition hover:border-electric-blue/25"
                       }
                     >
-                      <span className="font-mono text-[10px] font-black text-electric-blue">{String.fromCharCode(65 + index)}</span>
-                      <span className="text-[11px] leading-5 text-white/66">{option.label}</span>
+                      <span className="font-mono text-sm font-black text-electric-blue">{String.fromCharCode(65 + index)}</span>
+                      <span className="text-sm leading-6 text-white/70">{option.label}</span>
                     </button>
                   );
                 })}
               </div>
               {selectedAnswer !== undefined ? (
                 <div className="mt-4 rounded-md border border-white/[0.06] bg-[#020b0a] p-3">
-                  <p className="font-mono text-[8px] font-black uppercase tracking-[0.16em] text-white/38">
+                  <p className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-white/42">
                     {activeLessonPassed ? "Checkpoint passed" : "Review answer"}
                   </p>
-                  <p className="mt-2 text-[11px] leading-5 text-white/60">
+                  <p className="mt-2 text-sm leading-6 text-white/66">
                     {activeLesson.checkpoint.options[selectedAnswer]?.feedback}
                   </p>
-                  <p className="mt-2 text-[11px] leading-5 text-electric-blue/80">
+                  <p className="mt-2 text-sm leading-6 text-electric-blue/80">
                     {activeLesson.checkpoint.follow_up_question}
                   </p>
                 </div>
@@ -1660,7 +1660,7 @@ function GeneratedModuleView({
                   if (draftAnswer !== undefined) chooseAnswer(activeLesson, draftAnswer);
                 }}
                 disabled={draftAnswer === undefined}
-                className="mt-5 h-11 w-full rounded-md bg-white/[0.04] font-mono text-[9px] font-black uppercase tracking-[0.16em] text-white/45 transition hover:bg-electric-blue hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
+                className="mt-5 h-12 w-full rounded-md bg-white/[0.04] font-mono text-[11px] font-black uppercase tracking-[0.14em] text-white/50 transition hover:bg-electric-blue hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {activeLessonPassed ? "Checkpoint passed" : "Submit answer"}
               </button>
@@ -1668,11 +1668,11 @@ function GeneratedModuleView({
 
             <div className="space-y-4">
               <div className="rounded-md border border-warning-amber/25 bg-[#071410] p-4 shadow-[0_-1px_0_0_rgba(255,184,0,0.55)]">
-                <div className="flex items-center gap-2 font-mono text-[9px] font-black uppercase tracking-[0.18em] text-warning-amber">
+                <div className="flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-warning-amber">
                   <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
                   Quest Mentor
                 </div>
-                <p className="mt-4 text-[10px] leading-4 text-white/42">
+                <p className="mt-4 text-sm leading-6 text-white/50">
                   Ask about the generated lesson, its code, checkpoint, or deeper questions.
                 </p>
                 <textarea
@@ -1680,14 +1680,14 @@ function GeneratedModuleView({
                   onChange={(event) => setTutorQuestion(event.target.value)}
                   rows={3}
                   placeholder="e.g. What happens if the user pays twice?"
-                  className="mt-3 min-h-[74px] w-full resize-none rounded-md border border-white/[0.055] bg-[#020b0a] px-3 py-3 text-[11px] leading-5 text-white outline-none placeholder:text-white/25 focus:border-electric-blue/35"
+                  className="mt-3 min-h-[86px] w-full resize-none rounded-md border border-white/[0.055] bg-[#020b0a] px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-white/30 focus:border-electric-blue/35"
                 />
                 <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
                   <button
                     type="button"
                     onClick={onStartQuest}
                     disabled={!activeLessonPassed || questGenerationState === "loading"}
-                    className="flex h-9 items-center justify-center gap-2 rounded-md bg-electric-blue text-[10px] font-black text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-50"
+                    className="flex h-10 items-center justify-center gap-2 rounded-md bg-electric-blue text-xs font-black text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-50"
                   >
                     {questGenerationState === "loading" ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Zap className="h-3.5 w-3.5 fill-black" aria-hidden="true" />}
                     Generate Quest
@@ -1696,33 +1696,33 @@ function GeneratedModuleView({
                     type="button"
                     onClick={() => void onAskTutor()}
                     disabled={tutorLoading || tutorQuestion.trim().length === 0}
-                    className="h-9 rounded-md bg-white/[0.06] px-4 text-[10px] font-black text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="h-10 rounded-md bg-white/[0.06] px-5 text-xs font-black text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {tutorLoading ? "..." : "Ask"}
                   </button>
                 </div>
-                {tutorError ? <p className="mt-3 text-[10px] leading-4 text-red-300">{tutorError}</p> : null}
+                {tutorError ? <p className="mt-3 text-xs leading-5 text-red-300">{tutorError}</p> : null}
               </div>
 
               <div className="rounded-md border border-white/[0.075] bg-[#071410]">
-                <div className="flex h-8 items-center gap-2 border-b border-white/[0.06] px-3 font-mono text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                <div className="flex h-10 items-center gap-2 border-b border-white/[0.06] px-4 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-white/45">
                   <Brain className="h-3 w-3" aria-hidden="true" />
                   Tutor
                 </div>
-                <div className="max-h-[138px] space-y-3 overflow-y-auto p-3 scrollbar-none">
+                <div className="max-h-[220px] space-y-3 overflow-y-auto p-4 scrollbar-none">
                   {lessonTutorMessages.length === 0 ? (
-                    <p className="rounded-md border border-white/[0.055] bg-[#020b0a] p-3 text-[11px] leading-5 text-white/45">
+                    <p className="rounded-md border border-white/[0.055] bg-[#020b0a] p-4 text-sm leading-6 text-white/50">
                       Ask a question above to start the tutor session for this lesson.
                     </p>
                   ) : (
                     lessonTutorMessages.map((message) => (
                       <div key={message.id} className={message.role === "mentor" ? "rounded-md border border-electric-blue/25 bg-electric-blue/10 p-3" : "rounded-md border border-white/[0.055] bg-[#020b0a] p-3"}>
-                        <p className="font-mono text-[8px] font-black uppercase tracking-[0.14em] text-white/35">
+                        <p className="font-mono text-[11px] font-black uppercase tracking-[0.12em] text-white/40">
                           {message.role === "mentor" ? "Tutor" : "Me"}
                         </p>
-                        <p className="mt-2 text-[11px] leading-5 text-white/68">{message.text}</p>
-                        {message.why ? <p className="mt-2 text-[10px] leading-4 text-cyber-green/75">{message.why}</p> : null}
-                        {message.followUp ? <p className="mt-2 text-[10px] leading-4 text-electric-blue/75">{message.followUp}</p> : null}
+                        <p className="mt-2 text-sm leading-6 text-white/72">{message.text}</p>
+                        {message.why ? <p className="mt-2 text-xs leading-5 text-cyber-green/75">{message.why}</p> : null}
+                        {message.followUp ? <p className="mt-2 text-xs leading-5 text-electric-blue/75">{message.followUp}</p> : null}
                       </div>
                     ))
                   )}
