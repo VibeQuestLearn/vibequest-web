@@ -13,9 +13,11 @@ export type AccountSummary = {
 export function AccountControl({
   account,
   authConfigured,
+  showIdentity = false,
 }: {
   account: AccountSummary | null;
   authConfigured: boolean;
+  showIdentity?: boolean;
 }) {
   const [pending, setPending] = useState<"sign-in" | "sign-out" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +48,17 @@ export function AccountControl({
 
   if (account) {
     return (
-      <div className="relative">
+      <div className="relative flex min-w-0 items-center gap-3">
+        {showIdentity ? (
+          <div className="hidden min-w-0 text-right sm:block">
+            <p className="max-w-56 truncate text-sm font-black leading-5 text-white">
+              {account.name || "Google account"}
+            </p>
+            <p className="max-w-56 truncate text-sm leading-5 text-white/55">
+              {account.email || account.id}
+            </p>
+          </div>
+        ) : null}
         <button
           type="button"
           onClick={startSignOut}

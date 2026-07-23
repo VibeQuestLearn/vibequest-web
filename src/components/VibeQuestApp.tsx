@@ -11,7 +11,6 @@ import {
   Cpu,
   GraduationCap,
   Hexagon,
-  LayoutDashboard,
   LoaderCircle,
   LockKeyhole,
   MessageSquare,
@@ -536,7 +535,11 @@ export function VibeQuestApp({
               onClick={() => setActiveTab("landing")}
               className="flex min-w-0 items-center gap-3 text-left"
             >
-              <Hexagon className="h-8 w-8 shrink-0 text-electric-blue" strokeWidth={2.5} aria-hidden="true" />
+              <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+                <span className="absolute top-1 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue shadow-[0_0_18px_rgba(0,240,255,0.28)]" />
+                <span className="absolute top-3 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/85" />
+                <span className="absolute top-5 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/65" />
+              </span>
               <span className="block truncate text-[22px] font-black tracking-[-0.03em] text-white">VibeQuest</span>
             </button>
 
@@ -558,7 +561,7 @@ export function VibeQuestApp({
             </nav>
 
             <div className="flex justify-end">
-              <AccountControl account={account} authConfigured={authConfigured} />
+              <AccountControl account={account} authConfigured={authConfigured} showIdentity={activeTab === "dashboard"} />
             </div>
           </div>
 
@@ -590,6 +593,8 @@ export function VibeQuestApp({
           syncWarning={syncWarning}
           questState={questState}
           activeLessonPassed={activeLessonPassed}
+          activeLessonIndex={activeLessonIndex}
+          answers={answers}
           onLearn={() => setActiveTab("learn")}
           onQuest={() => setActiveTab("quest-run")}
           onWorkbench={() => setActiveTab("workbench")}
@@ -995,6 +1000,8 @@ function DashboardView({
   syncWarning,
   questState,
   activeLessonPassed,
+  activeLessonIndex,
+  answers,
   onLearn,
   onQuest,
   onWorkbench,
@@ -1007,94 +1014,406 @@ function DashboardView({
   syncWarning: string | null;
   questState: QuestState | null;
   activeLessonPassed: boolean;
+  activeLessonIndex: number;
+  answers: Record<string, number>;
   onLearn: () => void;
   onQuest: () => void;
   onWorkbench: () => void;
   onShip: () => void;
 }) {
   const lessonCount = moduleState?.module.lessons.length ?? 0;
-  const progress = lessonCount ? Math.round((completedLessons / lessonCount) * 100) : 0;
+  const checkpointValue = lessonCount ? `${completedLessons} / ${lessonCount}` : "0 / 0";
+  const activeTrackId = moduleState?.ecosystem.id ?? "zcash";
+  const activeTrackLabel = moduleState?.ecosystem.label ?? "Zcash";
+  const activeTrackDetail = moduleState ? syncStateLabel(syncState) : "Ready to start";
+  const questProgressSteps = questState
+    ? 1 + (questState.workspaceVerified ? 1 : 0) + (questState.runnerSubmission ? 1 : 0)
+    : 0;
+  const questProgress = questState ? Math.round((questProgressSteps / 3) * 100) : 0;
   const nextAction = !account
-    ? { label: "Sign in with Google", detail: "Google identity is required before Core can bind generated learning state.", action: onLearn }
+    ? { label: "Continue Learning", detail: "Sign in with Google, then generate or resume an AI learning module.", action: onLearn }
     : !moduleState
-      ? { label: "Generate Learning", detail: "Choose an ecosystem, topic, profile, and intent; Core will generate the module.", action: onLearn }
+      ? { label: "Continue Learning", detail: "Choose CKB, Fiber, or Zcash and let Core generate the first module.", action: onLearn }
       : !activeLessonPassed
-        ? { label: "Continue Lesson", detail: "Pass the active checkpoint to unlock the lesson quest.", action: onLearn }
+        ? { label: "Continue Learning", detail: "Resume the active lesson and pass its checkpoint.", action: onLearn }
         : !questState
-          ? { label: "Generate Quest", detail: "Convert the passed lesson into implementation files, denial tests, and a boss challenge.", action: onQuest }
+          ? { label: "Open Quest Run", detail: "Convert the passed lesson into an implementation quest.", action: onQuest }
           : !questState.workspaceVerified
-            ? { label: "Open Workbench", detail: "Inspect the generated files and run the local workspace checks.", action: onWorkbench }
-            : { label: "Review Ship Gate", detail: "Review the proof state and runner status before any claim flow is enabled.", action: onShip };
+            ? { label: "Open Workbench", detail: "Inspect generated files and run workspace checks.", action: onWorkbench }
+            : { label: "Review Ship Gate", detail: "Review runner evidence and ship-readiness state.", action: onShip };
+
+  const tracks = ECOSYSTEMS.map((ecosystem) => {
+    const active = ecosystem.id === activeTrackId;
+    const trackCompleted = active ? completedLessons : 0;
+    const trackTotal = active ? lessonCount : 0;
+    const trackProgress = trackTotal ? Math.round((trackCompleted / trackTotal) * 100) : 0;
+    return {
+      ecosystem,
+      active,
+      completed: trackCompleted,
+      total: trackTotal,
+      progress: trackProgress,
+      status: active ? "Active" : "Open",
+      action: active && moduleState ? "Continue" : "Open Learn",
+    };
+  });
+
+  const activities = [
+    questState
+      ? {
+          tone: "bg-warning-amber",
+          title: "Quest generated",
+          detail: questState.response.quest.title,
+          time: "Current session",
+        }
+      : null,
+    questState?.workspaceVerified
+      ? {
+          tone: "bg-cyber-green",
+          title: "Workspace verified",
+          detail: "Generated files passed local checks",
+          time: "Current session",
+        }
+      : null,
+    completedLessons > 0
+      ? {
+          tone: "bg-cyber-green",
+          title: `${completedLessons} checkpoint${completedLessons === 1 ? "" : "s"} passed`,
+          detail: moduleState?.module.title ?? "Active module",
+          time: "Current session",
+        }
+      : null,
+    moduleState
+      ? {
+          tone: "bg-electric-blue",
+          title: "Module generated",
+          detail: moduleState.module.title,
+          time: syncStateLabel(syncState),
+        }
+      : null,
+  ].filter(Boolean) as { tone: string; title: string; detail: string; time: string }[];
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-6xl flex-col gap-6 p-4 md:p-8">
-      <section className="rounded-2xl border border-electric-blue/20 bg-[#10151C] p-5">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <main className="min-h-[calc(100vh-70px)] bg-[#030d0b] px-6 py-10 text-white md:px-8 lg:px-10">
+      <section className="mx-auto max-w-[1440px]">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <div className="flex items-center gap-3">
-              <LayoutDashboard className="h-7 w-7 text-electric-blue" />
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-electric-blue">Dashboard</p>
-            </div>
-            <h1 className="mt-3 max-w-3xl text-3xl font-black tracking-tight text-white md:text-4xl">
-              Learn it, inspect it, then ship it.
+            <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Dashboard</p>
+            <h1 className="mt-5 max-w-4xl text-[44px] font-black leading-[0.98] tracking-[-0.06em] text-white drop-shadow-[0_3px_0_rgba(0,0,0,0.85)] md:text-[56px]">
+              Learn it, inspect it, <span className="text-electric-blue">then ship it.</span>
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
-              Google owns the learning session. CKB and Fiber remain selectable, while Zcash is the current grant-facing execution track.
+            <p className="mt-6 text-xl leading-8 text-white/58">
+              Three blockchain ecosystems. One learning system.
             </p>
           </div>
           <button
             type="button"
             onClick={nextAction.action}
-            className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-electric-blue px-5 py-3 text-sm font-black uppercase tracking-wider text-black transition-all hover:brightness-110"
+            className="inline-flex h-14 min-w-[250px] items-center justify-center gap-3 rounded-xl bg-electric-blue px-7 text-base font-black text-black shadow-[0_0_34px_rgba(0,240,255,0.18)] transition hover:-translate-y-0.5 hover:brightness-110"
           >
+            <Play className="h-4 w-4 fill-black" aria-hidden="true" />
             {nextAction.label}
-            <ArrowRight className="h-4 w-4" />
           </button>
         </div>
-      </section>
 
-      <section className="rounded-2xl border border-glass-border bg-[#15181F] p-5">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-cyber-green">Next best action</p>
-        <h2 className="mt-2 text-2xl font-black text-white">{nextAction.label}</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-on-surface-variant">{nextAction.detail}</p>
-      </section>
+        <section className="mt-14 grid gap-7 md:grid-cols-3">
+          <DashboardStatCard
+            title="Lessons Done"
+            value={String(completedLessons)}
+            detail={`${lessonCount} generated in active module`}
+            icon={<BookOpen className="h-5 w-5 text-electric-blue" aria-hidden="true" />}
+          />
+          <DashboardStatCard
+            title="Active Track"
+            value={activeTrackLabel}
+            detail={activeTrackDetail}
+            icon={<Zap className="h-5 w-5 text-warning-amber" aria-hidden="true" />}
+            outlined
+          />
+          <DashboardStatCard
+            title="Checkpoints"
+            value={checkpointValue}
+            detail={lessonCount ? "passed in current module" : "generate a module to begin"}
+            icon={<CheckCircle2 className="h-5 w-5 text-cyber-green" aria-hidden="true" />}
+            outlined
+          />
+        </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <MetricCard label="Account" value={account ? "Google signed in" : "Sign in required"} />
-        <MetricCard label="Active ecosystem" value={moduleState?.ecosystem.label ?? "Choose in Learn"} />
-        <MetricCard label="Module progress" value={moduleState ? `${progress}%` : "No module yet"} />
-        <MetricCard label="Cloud sync" value={syncStateLabel(syncState)} />
-      </section>
+        {syncWarning ? <Notice tone="amber" text={syncWarning} /> : null}
 
-      {syncWarning ? <Notice tone="amber" text={syncWarning} /> : null}
+        <section className="mt-14">
+          <div className="mb-7 flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-black tracking-[-0.04em] text-white">Ecosystem Tracks</h2>
+            <button type="button" onClick={onLearn} className="inline-flex items-center gap-2 text-sm font-black text-electric-blue transition hover:brightness-125">
+              Open Learn <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="grid gap-7 lg:grid-cols-3">
+            {tracks.map((track) => (
+              <DashboardTrackCard
+                key={track.ecosystem.id}
+                ecosystem={track.ecosystem}
+                active={track.active}
+                completed={track.completed}
+                total={track.total}
+                progress={track.progress}
+                status={track.status}
+                action={track.action}
+                onOpen={onLearn}
+              />
+            ))}
+          </div>
+        </section>
 
-      <section className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Active module" icon={<BookOpen className="h-5 w-5 text-electric-blue" />} action="Open Learn" onAction={onLearn}>
-          {moduleState ? (
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-wider text-on-surface-variant">{completedLessons}/{lessonCount} checkpoints passed</p>
-              <h3 className="mt-2 text-xl font-black text-white">{moduleState.module.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">{moduleState.module.outcome}</p>
+        <section className="mt-14 grid gap-7 xl:grid-cols-[1fr_1fr]">
+          <div className="flex min-h-[620px] flex-col rounded-2xl border border-electric-blue/35 bg-[#111d1b] p-7 shadow-[0_0_45px_rgba(0,240,255,0.04)]">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 font-mono text-xs font-black uppercase tracking-[0.14em] text-electric-blue">
+                <BookOpen className="h-4 w-4" aria-hidden="true" />
+                Active Module
+              </div>
+              <button type="button" onClick={onLearn} className="inline-flex items-center gap-2 text-sm font-medium text-white/55 transition hover:text-electric-blue">
+                Open <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
             </div>
-          ) : (
-            <ActionEmpty text="Generate the first AI module from the Learn screen." action="Open Learn" onClick={onLearn} />
-          )}
-        </Panel>
-        <Panel title="Active quest" icon={<Code2 className="h-5 w-5 text-cyber-green" />} action={questState ? "Open Workbench" : "Quest Run"} onAction={questState ? onWorkbench : onQuest}>
-          {questState ? (
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-wider text-on-surface-variant">{questState.response.learning_context.lesson_title}</p>
-              <h3 className="mt-2 text-xl font-black text-white">{questState.response.quest.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">{questState.response.quest.build_objective}</p>
+
+            {moduleState ? (
+              <>
+                <div className="mt-8 flex flex-wrap items-center gap-3">
+                  <span className="rounded-md bg-cyber-green/15 px-3 py-1 font-mono text-xs font-black uppercase tracking-[0.12em] text-cyber-green">
+                    {moduleState.ecosystem.label}
+                  </span>
+                  <span className="text-sm text-white/55">Module {activeLessonIndex + 1} of {lessonCount || 1}</span>
+                </div>
+                <h3 className="mt-4 text-[26px] font-black leading-tight tracking-[-0.04em] text-white">
+                  {moduleState.module.title}
+                </h3>
+                <p className="mt-4 text-base leading-7 text-white/58">{moduleState.module.outcome}</p>
+
+                <div className="mt-8 space-y-2">
+                  {moduleState.module.lessons.slice(0, 5).map((lesson, index) => {
+                    const passed = answers[lesson.id] === lesson.checkpoint.correct_index;
+                    const active = index === activeLessonIndex;
+                    const locked = index > activeLessonIndex && !passed;
+                    return (
+                      <button
+                        key={lesson.id}
+                        type="button"
+                        onClick={onLearn}
+                        className={
+                          active
+                            ? "grid w-full grid-cols-[34px_minmax(0,1fr)_24px] items-center gap-3 rounded-md bg-electric-blue/10 px-3 py-3 text-left"
+                            : "grid w-full grid-cols-[34px_minmax(0,1fr)_24px] items-center gap-3 rounded-md px-3 py-3 text-left transition hover:bg-white/[0.035]"
+                        }
+                      >
+                        <span className={active ? "font-mono text-sm text-electric-blue" : "font-mono text-sm text-white/32"}>{String(index + 1).padStart(2, "0")}</span>
+                        <span className={locked ? "line-clamp-1 text-base text-white/35" : active ? "line-clamp-1 text-base font-semibold text-white" : "line-clamp-1 text-base text-white/64"}>
+                          {lesson.title}
+                        </span>
+                        {passed ? (
+                          <CheckCircle2 className="h-4 w-4 text-cyber-green" aria-hidden="true" />
+                        ) : active ? (
+                          <span className="h-2 w-2 rounded-full bg-warning-amber" />
+                        ) : locked ? (
+                          <LockKeyhole className="h-4 w-4 text-white/22" aria-hidden="true" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-white/[0.08] bg-[#06110f] p-8 text-center">
+                <div>
+                  <BookOpen className="mx-auto h-10 w-10 text-electric-blue" aria-hidden="true" />
+                  <h3 className="mt-4 text-2xl font-black text-white">No active module yet</h3>
+                  <p className="mt-3 max-w-md text-sm leading-6 text-white/55">Open Learn, choose an ecosystem, and generate a module with Core.</p>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={onLearn}
+              className="mt-auto inline-flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-electric-blue text-base font-black text-black shadow-[0_0_30px_rgba(0,240,255,0.13)] transition hover:brightness-110"
+            >
+              <Play className="h-4 w-4 fill-black" aria-hidden="true" />
+              {moduleState ? "Resume Lesson" : "Start Learning"}
+            </button>
+          </div>
+
+          <div className="space-y-7">
+            <div className="rounded-2xl border border-warning-amber/45 bg-[#111d1b] p-7">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3 font-mono text-xs font-black uppercase tracking-[0.14em] text-warning-amber">
+                  <Zap className="h-4 w-4 fill-warning-amber" aria-hidden="true" />
+                  Active Quest
+                </div>
+                {questState ? (
+                  <span className="rounded-full border border-warning-amber/40 bg-warning-amber/10 px-4 py-1.5 font-mono text-xs font-black text-warning-amber">
+                    {questProgress}% complete
+                  </span>
+                ) : null}
+              </div>
+
+              {questState ? (
+                <>
+                  <h3 className="mt-8 text-2xl font-black tracking-[-0.04em] text-white">{questState.response.quest.title}</h3>
+                  <p className="mt-4 text-base leading-7 text-white/58">{questState.response.quest.build_objective}</p>
+                  <div className="mt-7 h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                    <span className="block h-full rounded-full bg-warning-amber" style={{ width: `${questProgress}%` }} />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onWorkbench}
+                    className="mt-7 h-12 w-full rounded-lg border border-white/[0.08] bg-[#071210] text-base font-black text-white transition hover:border-electric-blue/40 hover:text-electric-blue"
+                  >
+                    Open Quest Run
+                  </button>
+                </>
+              ) : (
+                <div className="mt-8 rounded-xl border border-dashed border-white/[0.08] bg-[#071210] p-6 text-center">
+                  <h3 className="text-xl font-black text-white">No active quest yet</h3>
+                  <p className="mt-3 text-sm leading-6 text-white/55">Pass a lesson checkpoint, then generate the implementation quest.</p>
+                  <button
+                    type="button"
+                    onClick={onQuest}
+                    className="mt-5 h-11 rounded-lg bg-electric-blue px-6 text-sm font-black text-black transition hover:brightness-110"
+                  >
+                    Open Quest Run
+                  </button>
+                </div>
+              )}
             </div>
-          ) : (
-            <ActionEmpty text="Pass a lesson checkpoint, then generate the implementation quest." action="Open Quest Run" onClick={onQuest} />
-          )}
-        </Panel>
+
+            <div className="rounded-2xl border border-white/[0.06] bg-[#111d1b] p-7">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 font-mono text-xs font-black uppercase tracking-[0.14em] text-white/55">
+                  <Network className="h-4 w-4" aria-hidden="true" />
+                  Recent Activity
+                </div>
+                <span className="text-sm text-white/45">Current</span>
+              </div>
+
+              <div className="mt-8 space-y-6">
+                {activities.length > 0 ? (
+                  activities.map((activity) => (
+                    <div key={`${activity.title}-${activity.detail}`} className="grid grid-cols-[12px_minmax(0,1fr)] gap-5">
+                      <span className={`mt-1.5 h-2.5 w-2.5 rounded-full ${activity.tone}`} />
+                      <div>
+                        <h4 className="text-base font-black text-white">{activity.title}</h4>
+                        <p className="mt-1 text-sm leading-5 text-white/50">{activity.detail}</p>
+                        <p className="mt-1 text-sm text-white/42">{activity.time}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-dashed border-white/[0.08] bg-[#071210] p-6 text-center">
+                    <p className="text-base font-semibold text-white/70">No learning activity yet.</p>
+                    <p className="mt-2 text-sm leading-6 text-white/50">Generate a module and activity will appear here from real session state.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
       </section>
     </main>
   );
 }
+
+function DashboardStatCard({
+  title,
+  value,
+  detail,
+  icon,
+  outlined = false,
+}: {
+  title: string;
+  value: string;
+  detail: string;
+  icon: React.ReactNode;
+  outlined?: boolean;
+}) {
+  return (
+    <article className={outlined ? "rounded-xl border border-white/55 bg-[#111d1b] p-7" : "rounded-xl border border-white/[0.04] bg-[#111d1b] p-7"}>
+      <div className="flex items-start justify-between gap-4">
+        <p className="font-mono text-xs font-black uppercase tracking-[0.14em] text-white/50">{title}</p>
+        {icon}
+      </div>
+      <p className="mt-9 text-[38px] font-black leading-none tracking-[-0.04em] text-white drop-shadow-[0_3px_0_rgba(0,0,0,0.85)]">{value}</p>
+      <p className="mt-3 text-base text-white/55">{detail}</p>
+    </article>
+  );
+}
+
+function DashboardTrackCard({
+  ecosystem,
+  active,
+  completed,
+  total,
+  progress,
+  status,
+  action,
+  onOpen,
+}: {
+  ecosystem: EcosystemOption;
+  active: boolean;
+  completed: number;
+  total: number;
+  progress: number;
+  status: string;
+  action: string;
+  onOpen: () => void;
+}) {
+  const tone = ecosystem.id === "fiber" ? "amber" : ecosystem.id === "ckb" ? "green" : "blue";
+  const progressColor = tone === "amber" ? "bg-warning-amber" : tone === "green" ? "bg-cyber-green" : "bg-electric-blue";
+  const borderColor = active
+    ? "border-electric-blue/45 shadow-[0_0_45px_rgba(0,240,255,0.05)]"
+    : tone === "amber"
+      ? "border-warning-amber/35"
+      : "border-white/55";
+  const textColor = tone === "amber" ? "text-warning-amber" : tone === "green" ? "text-cyber-green" : "text-electric-blue";
+  const iconTone = tone === "amber"
+    ? "border-warning-amber/30 bg-warning-amber/10 text-warning-amber"
+    : tone === "green"
+      ? "border-cyber-green/30 bg-cyber-green/10 text-cyber-green"
+      : "border-electric-blue/30 bg-electric-blue/10 text-electric-blue";
+
+  return (
+    <article className={`rounded-xl border bg-[#111d1b] p-7 ${borderColor}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <span className={`flex h-12 w-12 items-center justify-center rounded-lg border text-xl font-black ${iconTone}`}>
+            {ecosystem.label.charAt(0)}
+          </span>
+          <div>
+            <h3 className="text-2xl font-black text-white">{ecosystem.label}</h3>
+            <p className="mt-1 text-base text-white/52">{total ? `${completed} / ${total} lessons` : "No generated module"}</p>
+          </div>
+        </div>
+        {active ? (
+          <span className="rounded-full border border-electric-blue/40 bg-electric-blue/10 px-4 py-1.5 text-sm font-medium text-electric-blue">{status}</span>
+        ) : null}
+      </div>
+      <p className="mt-8 min-h-[56px] text-base leading-7 text-white/54">{ecosystem.detail}</p>
+      <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/[0.08]">
+        <span className={`block h-full rounded-full ${progressColor}`} style={{ width: `${progress}%` }} />
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-4 text-sm">
+        <span className="text-white/45">{total ? `${completed}/${total} complete` : "Generate in Learn"}</span>
+        <span className={textColor}>{progress}%</span>
+      </div>
+      <div className="mt-7 flex items-center justify-between gap-4">
+        <span className="text-sm text-white/45">Current session</span>
+        <button type="button" onClick={onOpen} className={`inline-flex items-center gap-2 text-base font-black ${textColor} transition hover:brightness-125`}>
+          {action} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+    </article>
+  );
+}
+
 
 function LearnView(props: {
   account: AccountSummary | null;
@@ -2036,15 +2355,6 @@ function Panel({ title, icon, action, onAction, children }: { title: string; ico
       </div>
       {children}
     </section>
-  );
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-glass-border bg-[#15181F] p-5">
-      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">{label}</p>
-      <p className="mt-2 text-xl font-black text-white">{value}</p>
-    </div>
   );
 }
 
