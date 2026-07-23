@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Code2,
+  Copy,
   Cpu,
   GraduationCap,
   Hexagon,
@@ -24,6 +25,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getSession } from "next-auth/react";
 
 import {
   AccountControl,
@@ -112,19 +114,19 @@ const TOTAL_LEARNING_MODULES = 5;
 const ECOSYSTEMS: EcosystemOption[] = [
   {
     id: "basics",
-    label: "Basics",
-    pathId: "basics-web-blockchain",
+    label: "Web3 + Blockchain",
+    pathId: "basics-web3-blockchain",
     accent: "text-electric-blue border-electric-blue/40 bg-electric-blue/10",
-    detail: "Web fundamentals, blockchain fundamentals, auth boundaries, APIs, wallets, transactions, and deployment safety.",
-    defaultTopic: "Web and blockchain fundamentals for AI-assisted protocol builders",
-    interests: ["Web Basics", "Blockchain Basics", "Authentication Boundaries", "Transaction Fundamentals"],
-    questLabel: "Foundations implementation quest",
+    detail: "Web3 mental models, wallets, keys, signatures, transactions, nodes, consensus, finality, and protocol evidence.",
+    defaultTopic: "Web3 and blockchain fundamentals for AI-assisted protocol builders",
+    interests: ["Web3 Mental Models", "Blockchain Fundamentals", "Wallets and Signatures", "Transaction Evidence"],
+    questLabel: "Web3 foundations quest",
     suggestedTopics: [
-      "HTTP, APIs, frontend/backend boundaries, and safe generated app state",
-      "Wallets, keys, signatures, transactions, mempools, and confirmations",
-      "Authentication, sessions, authorization, and replay-safe request design",
-      "UTXO versus account models and why protocol evidence differs from database state",
-      "Deployment, secrets, CORS, OAuth redirects, and production safety basics",
+      "Wallets, private keys, public keys, addresses, signatures, and transaction authorization",
+      "Transactions, mempools, confirmations, finality, reorgs, and safe completion evidence",
+      "UTXO versus account models and why protocol evidence differs from application state",
+      "Smart contracts, scripts, state transitions, events, and verifier trust boundaries",
+      "Replay resistance, nonce design, signature domain separation, and denial testing basics",
     ],
   },
   {
@@ -196,7 +198,7 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export function VibeQuestApp({
-  account,
+  account: initialAccount,
   authConfigured,
   initialPath = "/",
 }: {
@@ -205,6 +207,7 @@ export function VibeQuestApp({
   initialPath?: string;
 }) {
   const initialRoute = currentAppRoute(initialPath);
+  const [account, setAccount] = useState<AccountSummary | null>(initialAccount);
   const [activeTab, setActiveTab] = useState<TabId>(initialRoute.tab);
   const [requestedCourseId, setRequestedCourseId] = useState<string | null>(initialRoute.courseId);
   const [requestedLessonId, setRequestedLessonId] = useState<string | null>(initialRoute.lessonId);
@@ -244,6 +247,41 @@ export function VibeQuestApp({
   const activeLessonPassed = Boolean(
     activeLesson && answers[activeLesson.id] === activeLesson.checkpoint.correct_index,
   );
+
+  useEffect(() => {
+    setAccount(initialAccount);
+  }, [initialAccount]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshAccount() {
+      try {
+        const session = await getSession();
+        if (!cancelled) {
+          setAccount(accountSummaryFromSession(session));
+        }
+      } catch {
+        // Keep the last known server-provided account if the client refresh fails.
+      }
+    }
+
+    void refreshAccount();
+    const refreshOnFocus = () => void refreshAccount();
+    const refreshOnVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refreshAccount();
+      }
+    };
+
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnVisibility);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     answersRef.current = answers;
@@ -570,9 +608,9 @@ export function VibeQuestApp({
     void persistLearningState(moduleState, nextAnswers, activeLessonIndex, tutorMessages);
   }
 
-  async function askTutor() {
+  async function askTutor(questionOverride?: string) {
     if (!account || !moduleState || !generatedModule || !activeLesson) return;
-    const question = tutorQuestion.trim();
+    const question = (questionOverride ?? tutorQuestion).trim();
     if (!question) return;
 
     setTutorLoading(true);
@@ -755,9 +793,7 @@ export function VibeQuestApp({
     );
   }
 
-  const immersiveLearnFlow =
-    activeTab === "learn" &&
-    (generationState === "loading" || (learnScreenMode === "module" && Boolean(moduleState)));
+  const immersiveLearnFlow = activeTab === "learn" && generationState === "loading";
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#030d0b] font-sans text-on-surface">
@@ -991,15 +1027,18 @@ function LandingView({
             <a className="transition hover:text-electric-blue" href="#quests">Quests</a>
           </nav>
 
-          <button
-            type="button"
-            onClick={onEnter}
-            title={account ? "Open your workbench" : "Open the workbench and sign in when ready"}
-            className="inline-flex h-9 items-center justify-center gap-2 bg-electric-blue px-4 font-mono text-[9px] font-black uppercase tracking-[0.22em] text-black shadow-[0_0_24px_rgba(0,240,255,0.18)] transition hover:brightness-110"
-          >
-            Open Workbench
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
+          <div className="flex items-center justify-end gap-3">
+            {account ? <AccountControl account={account} authConfigured={authConfigured} showIdentity /> : null}
+            <button
+              type="button"
+              onClick={onEnter}
+              title={account ? "Open your workbench" : "Open the workbench and sign in when ready"}
+              className="inline-flex h-9 items-center justify-center gap-2 bg-electric-blue px-4 font-mono text-[9px] font-black uppercase tracking-[0.22em] text-black shadow-[0_0_24px_rgba(0,240,255,0.18)] transition hover:brightness-110"
+            >
+              Open Workbench
+              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1388,7 +1427,7 @@ function DashboardView({
               Learn it, inspect it, <span className="text-electric-blue">then ship it.</span>
             </h1>
             <p className="mt-6 text-xl leading-8 text-white/58">
-              Four learning paths. One AI learning system.
+              Web3 + Blockchain, CKB, Fiber, and Zcash. One AI learning system.
             </p>
           </div>
           <button
@@ -1765,7 +1804,7 @@ function LearnView(props: {
   tutorMessages: TutorMessage[];
   tutorLoading: boolean;
   tutorError: string | null;
-  onAskTutor: () => Promise<void>;
+  onAskTutor: (questionOverride?: string) => Promise<void>;
   syncState: SyncState;
   syncWarning: string | null;
   onStartQuest: () => void;
@@ -2204,7 +2243,7 @@ function GeneratedModuleView({
   tutorMessages: TutorMessage[];
   tutorLoading: boolean;
   tutorError: string | null;
-  onAskTutor: () => Promise<void>;
+  onAskTutor: (questionOverride?: string) => Promise<void>;
   onStartQuest: () => void;
   questGenerationState: "idle" | "loading";
   activeLessonPassed: boolean;
@@ -2212,11 +2251,25 @@ function GeneratedModuleView({
 }) {
   const learningModule = moduleState.module;
   const [draftAnswer, setDraftAnswer] = useState<number | undefined>(selectedAnswer);
+  const [tutorPanelOpen, setTutorPanelOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
+  const [showFireworks, setShowFireworks] = useState(false);
+  const lessonArticleRef = useRef<HTMLElement | null>(null);
+  const fireworksTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lessonTutorMessages = tutorMessages.filter((message) => !message.lessonId || message.lessonId === activeLesson.id);
 
   useEffect(() => {
     setDraftAnswer(selectedAnswer);
+    setSelectedText("");
   }, [activeLesson.id, selectedAnswer]);
+
+  useEffect(() => {
+    return () => {
+      if (fireworksTimeoutRef.current) {
+        clearTimeout(fireworksTimeoutRef.current);
+      }
+    };
+  }, []);
 
   function lessonPassed(lesson: LearningLessonDto) {
     return answers[lesson.id] === lesson.checkpoint.correct_index;
@@ -2228,12 +2281,51 @@ function GeneratedModuleView({
     return lessonPassed(learningModule.lessons[index - 1]);
   }
 
-  const paragraphs = [activeLesson.why_it_matters, ...activeLesson.explanation.split(/\n{2,}/)]
+  const lessonContent = splitLessonContent(activeLesson.explanation);
+  const paragraphs = [activeLesson.why_it_matters, ...lessonContent.body.split(/\n{2,}/)]
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
   const pendingLessonCount = Math.max(moduleState.totalLessons - learningModule.lessons.length, 0);
-  const lessonResources = activeLesson.resources && activeLesson.resources.length > 0 ? activeLesson.resources : learningModule.resources;
-  const lessonSubmodules = activeLesson.submodules ?? [];
+  const lessonResources = criticalLearningResources(
+    activeLesson.resources && activeLesson.resources.length > 0 ? activeLesson.resources : learningModule.resources,
+    activeLesson,
+    moduleState.ecosystem.id,
+  );
+  const previousLesson = learningModule.lessons[activeLessonIndex - 1] ?? null;
+  const nextLesson = learningModule.lessons[activeLessonIndex + 1] ?? null;
+  const canOpenNextLesson = Boolean(nextLesson && activeLessonPassed);
+
+  function captureSelection() {
+    const selection = window.getSelection();
+    const text = selection?.toString().trim() ?? "";
+    const anchorNode = selection?.anchorNode ?? null;
+    if (!text || text.length < 12 || !anchorNode || !lessonArticleRef.current?.contains(anchorNode)) {
+      setSelectedText("");
+      return;
+    }
+    setSelectedText(clampUiText(text.replace(/\s+/g, " "), 900));
+  }
+
+  function copySelectedText() {
+    if (!selectedText) return;
+    void navigator.clipboard?.writeText(selectedText);
+  }
+
+  function askTutorAboutSelection() {
+    if (!selectedText) return;
+    const question = highlightedTutorQuestion(selectedText);
+    setTutorPanelOpen(true);
+    setSelectedText("");
+    void onAskTutor(question);
+  }
+
+  function triggerFireworks() {
+    setShowFireworks(true);
+    if (fireworksTimeoutRef.current) {
+      clearTimeout(fireworksTimeoutRef.current);
+    }
+    fireworksTimeoutRef.current = setTimeout(() => setShowFireworks(false), 2200);
+  }
 
   return (
     <main className="min-h-screen bg-[#03100e] text-white lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -2258,6 +2350,7 @@ function GeneratedModuleView({
             const passed = lessonPassed(lesson);
             const locked = !lessonUnlocked(index);
             const status = locked ? "Locked" : active ? "In progress" : passed ? "Checkpoint passed" : "Checkpoint open";
+            const submodules = lesson.submodules ?? [];
             return (
               <button
                 key={lesson.id}
@@ -2280,6 +2373,17 @@ function GeneratedModuleView({
                   <span className={passed ? "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-cyber-green" : active ? "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-warning-amber" : "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-white/35"}>
                     {status}
                   </span>
+                  {active && submodules.length > 0 ? (
+                    <span className="mt-3 block space-y-2 border-t border-white/[0.07] pt-3">
+                      <span className="block font-mono text-[10px] font-black uppercase tracking-[0.14em] text-electric-blue">Submodules</span>
+                      {submodules.slice(0, 4).map((submodule) => (
+                        <span key={submodule.id} className="block rounded-md border border-white/[0.055] bg-[#020b0a] px-3 py-2">
+                          <span className="block text-xs font-black leading-4 text-white/78">{submodule.title}</span>
+                          <span className="mt-1 block text-[11px] leading-4 text-white/45">{submodule.summary}</span>
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
                 </span>
                 {passed ? <CheckCircle2 className="h-5 w-5 text-cyber-green" aria-hidden="true" /> : locked ? <LockKeyhole className="h-5 w-5 text-white/30" aria-hidden="true" /> : <ChevronRight className="h-5 w-5 text-electric-blue" aria-hidden="true" />}
               </button>
@@ -2298,7 +2402,7 @@ function GeneratedModuleView({
 
       <section className="min-w-0 px-6 py-10 lg:px-0">
         <div className="mx-auto w-full max-w-[920px]">
-          <article>
+          <article ref={lessonArticleRef} onMouseUp={captureSelection} onKeyUp={captureSelection}>
             <h1 className="text-3xl font-black leading-tight tracking-[-0.045em] text-white md:text-[36px]">
               {activeLesson.title}
             </h1>
@@ -2317,197 +2421,440 @@ function GeneratedModuleView({
               ))}
             </div>
 
-            {lessonSubmodules.length > 0 ? (
-              <section className="mt-8 rounded-xl border border-white/[0.075] bg-[#071410] p-5">
-                <h2 className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Submodules</h2>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {lessonSubmodules.map((submodule) => (
-                    <div key={submodule.id} className="rounded-lg border border-white/[0.06] bg-[#020b0a] p-4">
-                      <h3 className="text-sm font-black text-white">{submodule.title}</h3>
-                      <p className="mt-2 text-sm leading-6 text-white/55">{submodule.summary}</p>
-                      {submodule.children.length > 0 ? (
-                        <ul className="mt-3 space-y-2 text-xs leading-5 text-white/45">
-                          {submodule.children.map((child) => (
-                            <li key={child.id}>• {child.title}: {child.summary}</li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
             {lessonResources.length > 0 ? (
-              <section className="mt-8 rounded-xl border border-white/[0.075] bg-[#071410] p-5">
-                <h2 className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Related resources</h2>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {lessonResources.map((resource) => (
-                    <a key={`${resource.title}-${resource.url}`} href={resource.url} target="_blank" rel="noreferrer" className="rounded-lg border border-white/[0.06] bg-[#020b0a] p-4 transition hover:border-electric-blue/35">
-                      <span className="block text-sm font-black text-white">{resource.title}</span>
-                      <span className="mt-2 block text-sm leading-6 text-white/55">{resource.reason}</span>
-                    </a>
-                  ))}
-                </div>
-              </section>
+              <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-white/[0.07] pt-5">
+                <span className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-white/38">Related resources</span>
+                {lessonResources.map((resource) => (
+                  <a
+                    key={`${resource.title}-${resource.url}`}
+                    href={resource.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={resource.reason}
+                    className="rounded-full border border-electric-blue/25 bg-electric-blue/[0.035] px-3 py-1.5 text-sm font-semibold text-electric-blue transition hover:border-electric-blue/55 hover:bg-electric-blue/10"
+                  >
+                    {resource.title}
+                  </a>
+                ))}
+              </div>
             ) : null}
 
-            <div className="mt-8 overflow-hidden rounded-md border border-white/[0.075] bg-[#020b0a]">
-              <div className="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.035] px-3">
-                <ChevronRight className="h-5 w-5 text-electric-blue" aria-hidden="true" />
-                <span className="font-mono text-[11px] font-black uppercase tracking-[0.16em] text-white/40">lesson_manifest.json</span>
+            {shouldShowCodeLens(lessonContent.codeLens) ? (
+              <div className="mt-8 overflow-hidden rounded-md border border-white/[0.075] bg-[#020b0a]">
+                <div className="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.035] px-3">
+                  <ChevronRight className="h-5 w-5 text-electric-blue" aria-hidden="true" />
+                  <span className="font-mono text-[11px] font-black uppercase tracking-[0.16em] text-white/40">Code lens</span>
+                </div>
+                <pre className="overflow-auto p-5 font-mono text-[13px] leading-6 text-white/78 scrollbar-none">
+                  <code>{lessonContent.codeLens}</code>
+                </pre>
               </div>
-              <pre className="max-h-[360px] overflow-auto p-5 font-mono text-[13px] leading-6 text-white/78 scrollbar-none">
-                <code>{formatLessonManifest(moduleState, activeLesson)}</code>
-              </pre>
-            </div>
+            ) : null}
           </article>
 
           <div className="my-8 h-px bg-white/[0.075]" />
 
-          <section className="grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
-            <div className="rounded-md border border-electric-blue/35 bg-[#071410] p-5 shadow-[0_-1px_0_0_rgba(0,240,255,0.7)]">
-              <div className="flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-electric-blue">
-                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                Checkpoint
-              </div>
-              <p className="mt-5 text-[15px] font-semibold leading-6 text-white">
-                {activeLesson.checkpoint.question}
-              </p>
-              <div className="mt-5 space-y-3">
-                {activeLesson.checkpoint.options.map((option, index) => {
-                  const selected = draftAnswer === index;
-                  const submitted = selectedAnswer === index;
-                  const correct = index === activeLesson.checkpoint.correct_index;
-                  return (
-                    <button
-                      key={`${activeLesson.id}-${option.label}`}
-                      type="button"
-                      onClick={() => setDraftAnswer(index)}
-                      className={
-                        submitted && correct
-                          ? "grid w-full grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-md border border-cyber-green/40 bg-cyber-green/10 px-3 py-3 text-left"
-                          : submitted && !correct
-                            ? "grid w-full grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-md border border-red-400/45 bg-red-500/10 px-3 py-3 text-left"
-                            : selected
-                              ? "grid w-full grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-md border border-electric-blue/45 bg-electric-blue/10 px-3 py-3 text-left"
-                              : "grid w-full grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-md border border-white/[0.055] bg-[#020b0a] px-3 py-3 text-left transition hover:border-electric-blue/25"
-                      }
-                    >
-                      <span className="font-mono text-sm font-black text-electric-blue">{String.fromCharCode(65 + index)}</span>
-                      <span className="text-sm leading-6 text-white/70">{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {selectedAnswer !== undefined ? (
-                <div className="mt-4 rounded-md border border-white/[0.06] bg-[#020b0a] p-3">
-                  <p className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-white/42">
-                    {activeLessonPassed ? "Checkpoint passed" : "Review answer"}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-white/66">
-                    {activeLesson.checkpoint.options[selectedAnswer]?.feedback}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-electric-blue/80">
-                    {activeLesson.checkpoint.follow_up_question}
-                  </p>
+          <section className="rounded-2xl border border-electric-blue/45 bg-[#071410] p-5 shadow-[0_0_50px_rgba(0,240,255,0.05)] sm:p-7">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-electric-blue">
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                  Final Checkpoint
                 </div>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => {
-                  if (draftAnswer !== undefined) chooseAnswer(activeLesson, draftAnswer);
-                }}
-                disabled={draftAnswer === undefined}
-                className="mt-5 h-12 w-full rounded-md bg-white/[0.04] font-mono text-[11px] font-black uppercase tracking-[0.14em] text-white/50 transition hover:bg-electric-blue hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {activeLessonPassed ? "Checkpoint passed" : "Submit answer"}
-              </button>
+                <h2 className="mt-3 text-2xl font-black tracking-[-0.04em] text-white">Prove you understand this module</h2>
+              </div>
+              <span className={activeLessonPassed ? "rounded-full border border-cyber-green/35 bg-cyber-green/10 px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.12em] text-cyber-green" : "rounded-full border border-warning-amber/35 bg-warning-amber/10 px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.12em] text-warning-amber"}>
+                {activeLessonPassed ? "Checkpoint passed" : "Answer required"}
+              </span>
             </div>
-
-            <div className="space-y-4">
-              <div className="rounded-md border border-warning-amber/25 bg-[#071410] p-4 shadow-[0_-1px_0_0_rgba(255,184,0,0.55)]">
-                <div className="flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-warning-amber">
-                  <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
-                  Quest Mentor
-                </div>
-                <p className="mt-4 text-sm leading-6 text-white/50">
-                  Ask about the generated lesson, its code, checkpoint, or deeper questions.
+            <p className="mt-6 text-lg font-semibold leading-8 text-white">
+              {activeLesson.checkpoint.question}
+            </p>
+            <div className="mt-6 grid gap-3">
+              {activeLesson.checkpoint.options.map((option, index) => {
+                const selected = draftAnswer === index;
+                const submitted = selectedAnswer === index;
+                const correct = index === activeLesson.checkpoint.correct_index;
+                return (
+                  <button
+                    key={`${activeLesson.id}-${option.label}`}
+                    type="button"
+                    onClick={() => setDraftAnswer(index)}
+                    className={
+                      submitted && correct
+                        ? "grid w-full grid-cols-[34px_minmax(0,1fr)] gap-4 rounded-xl border border-cyber-green/45 bg-cyber-green/10 px-4 py-4 text-left"
+                        : submitted && !correct
+                          ? "grid w-full grid-cols-[34px_minmax(0,1fr)] gap-4 rounded-xl border border-red-400/45 bg-red-500/10 px-4 py-4 text-left"
+                          : selected
+                            ? "grid w-full grid-cols-[34px_minmax(0,1fr)] gap-4 rounded-xl border border-electric-blue/55 bg-electric-blue/10 px-4 py-4 text-left"
+                            : "grid w-full grid-cols-[34px_minmax(0,1fr)] gap-4 rounded-xl border border-white/[0.07] bg-[#020b0a] px-4 py-4 text-left transition hover:border-electric-blue/30"
+                    }
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-electric-blue/30 font-mono text-sm font-black text-electric-blue">{String.fromCharCode(65 + index)}</span>
+                    <span className="text-base leading-7 text-white/76">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {selectedAnswer !== undefined ? (
+              <div className="mt-5 rounded-xl border border-white/[0.07] bg-[#020b0a] p-4">
+                <p className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-white/42">
+                  {activeLessonPassed ? "Checkpoint passed" : "Review answer"}
                 </p>
-                <textarea
-                  value={tutorQuestion}
-                  onChange={(event) => setTutorQuestion(event.target.value)}
-                  rows={3}
-                  placeholder="e.g. What happens if the user pays twice?"
-                  className="mt-3 min-h-[86px] w-full resize-none rounded-md border border-white/[0.055] bg-[#020b0a] px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-white/30 focus:border-electric-blue/35"
-                />
-                <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-                  <button
-                    type="button"
-                    onClick={onStartQuest}
-                    disabled={!activeLessonPassed || questGenerationState === "loading"}
-                    className="flex h-10 items-center justify-center gap-2 rounded-md bg-electric-blue text-xs font-black text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-50"
-                  >
-                    {questGenerationState === "loading" ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Zap className="h-3.5 w-3.5 fill-black" aria-hidden="true" />}
-                    Generate Quest
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void onAskTutor()}
-                    disabled={tutorLoading || tutorQuestion.trim().length === 0}
-                    className="h-10 rounded-md bg-white/[0.06] px-5 text-xs font-black text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {tutorLoading ? "..." : "Ask"}
-                  </button>
-                </div>
-                {tutorError ? <p className="mt-3 text-xs leading-5 text-red-300">{tutorError}</p> : null}
+                <p className="mt-2 text-sm leading-6 text-white/66">
+                  {activeLesson.checkpoint.options[selectedAnswer]?.feedback}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-electric-blue/80">
+                  {activeLesson.checkpoint.follow_up_question}
+                </p>
               </div>
-
-              <div className="rounded-md border border-white/[0.075] bg-[#071410]">
-                <div className="flex h-10 items-center gap-2 border-b border-white/[0.06] px-4 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-white/45">
-                  <Brain className="h-3 w-3" aria-hidden="true" />
-                  Tutor
-                </div>
-                <div className="max-h-[220px] space-y-3 overflow-y-auto p-4 scrollbar-none">
-                  {lessonTutorMessages.length === 0 ? (
-                    <p className="rounded-md border border-white/[0.055] bg-[#020b0a] p-4 text-sm leading-6 text-white/50">
-                      Ask a question above to start the tutor session for this lesson.
-                    </p>
-                  ) : (
-                    lessonTutorMessages.map((message) => (
-                      <div key={message.id} className={message.role === "mentor" ? "rounded-md border border-electric-blue/25 bg-electric-blue/10 p-3" : "rounded-md border border-white/[0.055] bg-[#020b0a] p-3"}>
-                        <p className="font-mono text-[11px] font-black uppercase tracking-[0.12em] text-white/40">
-                          {message.role === "mentor" ? "Tutor" : "Me"}
-                        </p>
-                        <p className="mt-2 text-sm leading-6 text-white/72">{message.text}</p>
-                        {message.why ? <p className="mt-2 text-xs leading-5 text-cyber-green/75">{message.why}</p> : null}
-                        {message.followUp ? <p className="mt-2 text-xs leading-5 text-electric-blue/75">{message.followUp}</p> : null}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                if (draftAnswer !== undefined) {
+                  chooseAnswer(activeLesson, draftAnswer);
+                  if (draftAnswer === activeLesson.checkpoint.correct_index) {
+                    triggerFireworks();
+                  }
+                }
+              }}
+              disabled={draftAnswer === undefined}
+              className="mt-6 h-13 min-h-13 w-full rounded-xl bg-electric-blue text-base font-black text-black shadow-[0_0_28px_rgba(0,240,255,0.12)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {activeLessonPassed ? "Checkpoint passed" : "Submit checkpoint answer"}
+            </button>
           </section>
+
+          <LessonBottomNavigation
+            previousLesson={previousLesson}
+            nextLesson={nextLesson}
+            nextPending={pendingLessonCount > 0 && !nextLesson}
+            canOpenNextLesson={canOpenNextLesson}
+            activeLessonPassed={activeLessonPassed}
+            onPrevious={() => chooseLesson(activeLessonIndex - 1)}
+            onNext={() => chooseLesson(activeLessonIndex + 1)}
+            onStartQuest={onStartQuest}
+            questGenerationState={questGenerationState}
+          />
+
+          <TutorFloatingDock
+            open={tutorPanelOpen}
+            setOpen={setTutorPanelOpen}
+            tutorQuestion={tutorQuestion}
+            setTutorQuestion={setTutorQuestion}
+            tutorMessages={lessonTutorMessages}
+            tutorLoading={tutorLoading}
+            tutorError={tutorError}
+            onAskTutor={onAskTutor}
+            onStartQuest={onStartQuest}
+            questGenerationState={questGenerationState}
+            activeLessonPassed={activeLessonPassed}
+          />
+
+          <SelectedTextToolbar
+            selectedText={selectedText}
+            onCopy={copySelectedText}
+            onAskTutor={askTutorAboutSelection}
+            onClear={() => setSelectedText("")}
+          />
+
+          <CheckpointFireworks show={showFireworks} />
         </div>
       </section>
     </main>
   );
 }
 
-function formatLessonManifest(moduleState: ModuleState, lesson: LearningLessonDto) {
-  return JSON.stringify(
-    {
-      ecosystem: moduleState.ecosystem.id,
-      module: moduleState.module.title,
-      lesson: lesson.title,
-      concepts: lesson.concepts,
-      checkpoint: lesson.checkpoint.question,
-      quest_bridge: lesson.quest_bridge,
-    },
-    null,
-    2,
+
+function LessonBottomNavigation({
+  previousLesson,
+  nextLesson,
+  nextPending,
+  canOpenNextLesson,
+  activeLessonPassed,
+  onPrevious,
+  onNext,
+  onStartQuest,
+  questGenerationState,
+}: {
+  previousLesson: LearningLessonDto | null;
+  nextLesson: LearningLessonDto | null;
+  nextPending: boolean;
+  canOpenNextLesson: boolean;
+  activeLessonPassed: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+  onStartQuest: () => void;
+  questGenerationState: "idle" | "loading";
+}) {
+  return (
+    <nav className="mt-6 grid gap-3 rounded-2xl border border-white/[0.07] bg-[#071410] p-4 sm:grid-cols-3" aria-label="Lesson module navigation">
+      <button
+        type="button"
+        onClick={onPrevious}
+        disabled={!previousLesson}
+        className="rounded-xl border border-white/[0.07] bg-[#020b0a] px-4 py-4 text-left transition hover:border-electric-blue/30 disabled:cursor-not-allowed disabled:opacity-35"
+      >
+        <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/38">Previous module</span>
+        <span className="mt-2 line-clamp-1 block text-sm font-black text-white">{previousLesson?.title ?? "No previous module"}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={!canOpenNextLesson}
+        className="rounded-xl border border-electric-blue/25 bg-electric-blue/[0.045] px-4 py-4 text-left transition hover:border-electric-blue/55 disabled:cursor-not-allowed disabled:border-white/[0.07] disabled:bg-[#020b0a] disabled:opacity-55"
+      >
+        <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-electric-blue">Next module</span>
+        <span className="mt-2 line-clamp-1 block text-sm font-black text-white">
+          {nextLesson ? nextLesson.title : nextPending ? "Still generating" : "End of course"}
+        </span>
+        {!activeLessonPassed && nextLesson ? <span className="mt-1 block text-xs text-warning-amber">Pass this checkpoint to unlock it.</span> : null}
+      </button>
+
+      <button
+        type="button"
+        onClick={onStartQuest}
+        disabled={!activeLessonPassed || questGenerationState === "loading"}
+        className="rounded-xl bg-electric-blue px-4 py-4 text-left text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-50"
+      >
+        <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-black/55">After checkpoint</span>
+        <span className="mt-2 flex items-center gap-2 text-sm font-black">
+          {questGenerationState === "loading" ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Zap className="h-4 w-4 fill-black" aria-hidden="true" />}
+          Generate Quest
+        </span>
+      </button>
+    </nav>
   );
+}
+
+function TutorFloatingDock({
+  open,
+  setOpen,
+  tutorQuestion,
+  setTutorQuestion,
+  tutorMessages,
+  tutorLoading,
+  tutorError,
+  onAskTutor,
+  onStartQuest,
+  questGenerationState,
+  activeLessonPassed,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  tutorQuestion: string;
+  setTutorQuestion: (value: string) => void;
+  tutorMessages: TutorMessage[];
+  tutorLoading: boolean;
+  tutorError: string | null;
+  onAskTutor: (questionOverride?: string) => Promise<void>;
+  onStartQuest: () => void;
+  questGenerationState: "idle" | "loading";
+  activeLessonPassed: boolean;
+}) {
+  return (
+    <>
+      <div className="fixed bottom-4 right-4 z-[85] flex max-w-[calc(100vw-2rem)] flex-col items-end gap-2 sm:flex-row">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-electric-blue/35 bg-[#071410] px-5 text-sm font-black text-electric-blue shadow-[0_18px_50px_rgba(0,0,0,0.45)] transition hover:bg-electric-blue hover:text-black"
+        >
+          <MessageSquare className="h-4 w-4" aria-hidden="true" />
+          Ask QuestVibe Tutor
+        </button>
+        <button
+          type="button"
+          onClick={onStartQuest}
+          disabled={!activeLessonPassed || questGenerationState === "loading"}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-electric-blue px-5 text-sm font-black text-black shadow-[0_18px_50px_rgba(0,240,255,0.16)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-50"
+        >
+          {questGenerationState === "loading" ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Zap className="h-4 w-4 fill-black" aria-hidden="true" />}
+          Generate Quest
+        </button>
+      </div>
+
+      {open ? (
+        <aside className="fixed bottom-20 right-4 top-24 z-[84] flex w-[min(calc(100vw-2rem),440px)] flex-col overflow-hidden rounded-2xl border border-electric-blue/25 bg-[#071410] text-white shadow-[0_24px_90px_rgba(0,0,0,0.62)]">
+          <header className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
+            <div className="flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-electric-blue">
+              <Brain className="h-4 w-4" aria-hidden="true" />
+              QuestVibe Tutor
+            </div>
+            <button type="button" onClick={() => setOpen(false)} className="rounded-full p-2 text-white/45 transition hover:bg-white/5 hover:text-white" aria-label="Close tutor">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </header>
+          <div className="flex-1 space-y-3 overflow-y-auto p-4 scrollbar-none">
+            {tutorMessages.length === 0 ? (
+              <p className="rounded-xl border border-white/[0.06] bg-[#020b0a] p-4 text-sm leading-6 text-white/52">
+                Ask about the lesson, checkpoint, generated code lens, or highlight text in the lesson and send it here.
+              </p>
+            ) : (
+              tutorMessages.map((message) => (
+                <div key={message.id} className={message.role === "mentor" ? "rounded-xl border border-electric-blue/25 bg-electric-blue/10 p-3" : "rounded-xl border border-white/[0.06] bg-[#020b0a] p-3"}>
+                  <p className="font-mono text-[11px] font-black uppercase tracking-[0.12em] text-white/40">
+                    {message.role === "mentor" ? "Tutor" : "Me"}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-white/72">{message.text}</p>
+                  {message.why ? <p className="mt-2 text-xs leading-5 text-cyber-green/75">{message.why}</p> : null}
+                  {message.followUp ? <p className="mt-2 text-xs leading-5 text-electric-blue/75">{message.followUp}</p> : null}
+                </div>
+              ))
+            )}
+          </div>
+          <footer className="border-t border-white/[0.07] p-3">
+            <textarea
+              value={tutorQuestion}
+              onChange={(event) => setTutorQuestion(event.target.value)}
+              rows={3}
+              placeholder="Ask a specific question about this lesson..."
+              className="min-h-[88px] w-full resize-none rounded-xl border border-white/[0.07] bg-[#020b0a] px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-white/30 focus:border-electric-blue/35"
+            />
+            <button
+              type="button"
+              onClick={() => void onAskTutor()}
+              disabled={tutorLoading || tutorQuestion.trim().length === 0}
+              className="mt-3 h-11 w-full rounded-xl bg-electric-blue text-sm font-black text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {tutorLoading ? "Asking..." : "Ask Tutor"}
+            </button>
+            {tutorError ? <p className="mt-3 text-xs leading-5 text-red-300">{tutorError}</p> : null}
+          </footer>
+        </aside>
+      ) : null}
+    </>
+  );
+}
+
+function SelectedTextToolbar({
+  selectedText,
+  onCopy,
+  onAskTutor,
+  onClear,
+}: {
+  selectedText: string;
+  onCopy: () => void;
+  onAskTutor: () => void;
+  onClear: () => void;
+}) {
+  if (!selectedText) return null;
+  return (
+    <div className="fixed bottom-32 right-4 z-[86] w-[min(calc(100vw-2rem),420px)] rounded-2xl border border-electric-blue/30 bg-[#071410] p-3 text-white shadow-[0_24px_80px_rgba(0,0,0,0.58)]">
+      <p className="line-clamp-2 text-xs leading-5 text-white/55">“{selectedText}”</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" onClick={onCopy} className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.08] bg-[#020b0a] px-3 text-xs font-black text-white/72 transition hover:border-electric-blue/35 hover:text-electric-blue">
+          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+          Copy
+        </button>
+        <button type="button" onClick={onAskTutor} className="inline-flex h-9 items-center gap-2 rounded-lg bg-electric-blue px-3 text-xs font-black text-black transition hover:brightness-110">
+          <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+          Ask QuestVibe Tutor
+        </button>
+        <button type="button" onClick={onClear} className="h-9 rounded-lg px-3 text-xs font-black text-white/42 transition hover:text-white">
+          Clear
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CheckpointFireworks({ show }: { show: boolean }) {
+  if (!show) return null;
+  const sparks = Array.from({ length: 22 }, (_, index) => {
+    const angle = (Math.PI * 2 * index) / 22;
+    const radius = index % 2 === 0 ? 150 : 95;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    const color = index % 3 === 0 ? "#39ff88" : index % 3 === 1 ? "#00f0ff" : "#ffb800";
+    return (
+      <span
+        key={index}
+        className="absolute left-1/2 top-1/2 h-2.5 w-2.5 rounded-full animate-vq-firework"
+        style={{
+          "--vq-firework-x": `${x}px`,
+          "--vq-firework-y": `${y}px`,
+          backgroundColor: color,
+          boxShadow: `0 0 18px ${color}`,
+          animationDelay: `${index * 18}ms`,
+        } as React.CSSProperties}
+      />
+    );
+  });
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[95] flex items-center justify-center bg-[#00110d]/15">
+      <div className="relative h-[340px] w-[340px]">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-electric-blue/45 bg-electric-blue/15 px-5 py-3 text-center font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue shadow-[0_0_50px_rgba(0,240,255,0.25)]">
+          Checkpoint passed
+        </div>
+        {sparks}
+      </div>
+    </div>
+  );
+}
+
+function splitLessonContent(explanation: string) {
+  const match = explanation.match(/([\s\S]*?)\n\nCode lens:\n([\s\S]*)$/);
+  if (!match) {
+    return { body: explanation, codeLens: "" };
+  }
+  return {
+    body: match[1].trim(),
+    codeLens: match[2].trim(),
+  };
+}
+
+function shouldShowCodeLens(codeLens: string): boolean {
+  const trimmed = codeLens.trim();
+  if (trimmed.length < 18) return false;
+  return /[{}`;=()]|function|const|let|struct|impl|verify|validate|assert|expect|return/i.test(trimmed);
+}
+
+function criticalLearningResources(
+  resources: LearningModuleDto["resources"],
+  lesson: LearningLessonDto,
+  ecosystemId: EcosystemId,
+) {
+  const filtered = resources.filter((resource) => resourceMatchesLesson(resource, lesson, ecosystemId));
+  return (filtered.length > 0 ? filtered : resources.slice(0, ecosystemId === "basics" ? 2 : 1)).slice(0, 3);
+}
+
+function resourceMatchesLesson(
+  resource: LearningModuleDto["resources"][number],
+  lesson: LearningLessonDto,
+  ecosystemId: EcosystemId,
+) {
+  const haystack = `${lesson.title} ${lesson.why_it_matters} ${lesson.explanation} ${lesson.concepts.join(" ")}`.toLowerCase();
+  const resourceText = `${resource.title} ${resource.url} ${resource.reason}`.toLowerCase();
+  if (ecosystemId === "zcash") return /zcash|zip-?321|shielded|orchard|sapling|memo|viewing/.test(resourceText);
+  if (ecosystemId === "fiber") return /fiber|ptlc|payment channel|invoice|nervos/.test(resourceText);
+  if (ecosystemId === "ckb") return /ckb|nervos|cell|script|witness/.test(resourceText);
+  if (ecosystemId === "basics") return /web3|blockchain|ethereum|bitcoin|wallet|signature|transaction|consensus/.test(resourceText);
+  return resource.title
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((term) => term.length >= 4)
+    .some((term) => haystack.includes(term));
+}
+
+function highlightedTutorQuestion(selectedText: string): string {
+  return `Explain this highlighted lesson passage in detail, connect it to the current checkpoint, and give one concrete denial-test habit:\n\n"${selectedText}"`;
+}
+
+function clampUiText(value: string, maxChars: number): string {
+  return value.length <= maxChars ? value : `${value.slice(0, maxChars).trim()}...`;
+}
+
+function accountSummaryFromSession(session: { user?: { id?: string | null; name?: string | null; email?: string | null } } | null): AccountSummary | null {
+  if (!session?.user?.id) return null;
+  return {
+    id: session.user.id,
+    name: session.user.name ?? null,
+    email: session.user.email ?? null,
+  };
 }
 
 function QuestRunView({

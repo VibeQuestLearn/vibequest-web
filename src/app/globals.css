@@ -70,3 +70,22 @@ textarea {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+@keyframes vq-firework {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--vq-firework-x)), calc(-50% + var(--vq-firework-y))) scale(0);
+  }
+}
+
+.animate-vq-firework {
+  animation: vq-firework 900ms ease-out forwards;
+}
+
