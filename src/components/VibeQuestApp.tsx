@@ -10,6 +10,7 @@ import {
   Code2,
   Cpu,
   GraduationCap,
+  Hexagon,
   LayoutDashboard,
   LoaderCircle,
   LockKeyhole,
@@ -17,12 +18,11 @@ import {
   Network,
   Play,
   RefreshCw,
-  Send,
   ShieldCheck,
   Ship,
-  Sparkles,
-  Target,
   Terminal,
+  X,
+  Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -52,6 +52,7 @@ import {
 
 type TabId = "landing" | "dashboard" | "learn" | "quest-run" | "workbench" | "ship-gate";
 type SyncState = "idle" | "loading" | "saving" | "saved" | "local-only";
+type LearnScreenMode = "select" | "module";
 
 type EcosystemOption = {
   id: EcosystemId;
@@ -136,6 +137,11 @@ const ECOSYSTEMS: EcosystemOption[] = [
 
 const PROFILES = ["Vibecoder", "Backend dev", "Frontend dev", "Security auditor", "Product / community"];
 const PACES = ["Focused", "Deep dive", "Fast practical", "Audit-heavy"];
+const LEARNING_INTENT_OPTIONS = [
+  "Understand the trust boundary",
+  "Read generated verifier code",
+  "Design denial tests before shipping",
+];
 const TABS: { id: TabId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "learn", label: "Learn" },
@@ -152,14 +158,13 @@ export function VibeQuestApp({
   authConfigured: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<TabId>("landing");
+  const [learnScreenMode, setLearnScreenMode] = useState<LearnScreenMode>("select");
   const [ecosystemId, setEcosystemId] = useState<EcosystemId>("zcash");
   const selectedEcosystem = ecosystemById(ecosystemId);
   const [topic, setTopic] = useState(selectedEcosystem.defaultTopic);
   const [profile, setProfile] = useState("Vibecoder");
   const [pace, setPace] = useState("Focused");
-  const [intentText, setIntentText] = useState(
-    "Understand the trust boundary\nRead generated verifier code\nDesign denial tests before shipping",
-  );
+  const [intentText, setIntentText] = useState("Understand the trust boundary");
   const [moduleState, setModuleState] = useState<ModuleState | null>(null);
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -240,6 +245,7 @@ export function VibeQuestApp({
       learnerGoal: record.learner_goal,
       module: record.module,
     });
+    setLearnScreenMode("module");
     setActiveLessonIndex(Math.min(record.active_lesson_index, Math.max(record.module.lessons.length - 1, 0)));
     setAnswers(record.checkpoint_answers ?? {});
     setTutorMessages(record.tutor_messages.map(tutorMessageFromDto));
@@ -269,6 +275,7 @@ export function VibeQuestApp({
     setTutorQuestion("");
     setTutorError(null);
     setQuestState(null);
+    setLearnScreenMode("module");
 
     try {
       const learnerGoal = buildLearnerGoal(selectedEcosystem, trimmedTopic, intentList);
@@ -301,8 +308,10 @@ export function VibeQuestApp({
       setAnswers({});
       setSyncState(response.persistence.saved ? "saved" : "local-only");
       setSyncWarning(response.persistence.warning ?? response.warning);
+      setLearnScreenMode("module");
       setActiveTab("learn");
     } catch (error) {
+      setLearnScreenMode("select");
       setGenerationError(error instanceof Error ? error.message : "Lesson generation failed.");
     } finally {
       setGenerationState("idle");
@@ -513,25 +522,47 @@ export function VibeQuestApp({
     );
   }
 
-  return (
-    <div className="min-h-screen overflow-x-hidden bg-[#0B0C0E] font-sans text-on-surface">
-      <header className="sticky top-0 z-50 border-b border-glass-border bg-[#0B0C0E]/92 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:px-8">
-          <button
-            type="button"
-            onClick={() => setActiveTab("landing")}
-            className="flex min-w-0 items-center gap-3 text-left"
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-gradient-to-tr from-electric-blue to-cyber-green font-mono font-bold text-black shadow-[0_0_15px_rgba(0,240,255,0.4)]">
-              V
-            </div>
-            <div className="min-w-0">
-              <span className="block truncate text-lg font-bold tracking-tight text-white">VibeQuest</span>
-              <span className="block text-[10px] font-mono uppercase leading-none text-on-surface-variant">WORKBENCH</span>
-            </div>
-          </button>
+  const immersiveLearnFlow =
+    activeTab === "learn" &&
+    (generationState === "loading" || (learnScreenMode === "module" && Boolean(moduleState)));
 
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="VibeQuest workspace">
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-[#030d0b] font-sans text-on-surface">
+      {!immersiveLearnFlow ? (
+        <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#030b0a]/96 backdrop-blur-md">
+          <div className="mx-auto grid h-[70px] max-w-none grid-cols-[1fr_auto_1fr] items-center gap-4 px-6">
+            <button
+              type="button"
+              onClick={() => setActiveTab("landing")}
+              className="flex min-w-0 items-center gap-3 text-left"
+            >
+              <Hexagon className="h-8 w-8 shrink-0 text-electric-blue" strokeWidth={2.5} aria-hidden="true" />
+              <span className="block truncate text-[22px] font-black tracking-[-0.03em] text-white">VibeQuest</span>
+            </button>
+
+            <nav className="hidden items-center gap-8 md:flex" aria-label="VibeQuest workspace">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={
+                    activeTab === tab.id
+                      ? "text-sm font-semibold text-electric-blue"
+                      : "text-sm font-medium text-white/62 transition-colors hover:text-white"
+                  }
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+
+            <div className="flex justify-end">
+              <AccountControl account={account} authConfigured={authConfigured} />
+            </div>
+          </div>
+
+          <div className="flex gap-1 overflow-x-auto border-t border-white/[0.06] bg-[#030b0a]/80 px-4 py-2 md:hidden">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -539,38 +570,16 @@ export function VibeQuestApp({
                 onClick={() => setActiveTab(tab.id)}
                 className={
                   activeTab === tab.id
-                    ? "relative rounded-lg bg-white/5 px-4 py-2 text-sm font-semibold text-white"
-                    : "rounded-lg px-4 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-white/5 hover:text-white"
+                    ? "whitespace-nowrap rounded-md bg-electric-blue/10 px-3 py-1.5 text-xs font-medium text-electric-blue"
+                    : "whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium text-white/55 hover:bg-white/5 hover:text-white"
                 }
               >
                 {tab.label}
-                {activeTab === tab.id ? <span className="absolute bottom-1 left-4 right-4 h-[2px] rounded-full bg-electric-blue" /> : null}
               </button>
             ))}
-          </nav>
-
-          <div className="shrink-0 rounded-xl bg-white px-2 py-1 text-black shadow-panel-sm">
-            <AccountControl account={account} authConfigured={authConfigured} />
           </div>
-        </div>
-
-        <div className="flex gap-1 overflow-x-auto border-t border-glass-border bg-[#0B0C0E]/55 px-4 py-2 lg:hidden">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={
-                activeTab === tab.id
-                  ? "whitespace-nowrap rounded-md bg-electric-blue/15 px-3 py-1.5 text-xs font-medium text-electric-blue"
-                  : "whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium text-on-surface-variant hover:bg-white/5"
-              }
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </header>
+        </header>
+      ) : null}
 
       {activeTab === "dashboard" ? (
         <DashboardView
@@ -591,6 +600,8 @@ export function VibeQuestApp({
         <LearnView
           account={account}
           authConfigured={authConfigured}
+          learnScreenMode={learnScreenMode}
+          onBackToSelect={() => setLearnScreenMode("select")}
           ecosystems={ECOSYSTEMS}
           selectedEcosystem={selectedEcosystem}
           chooseEcosystem={chooseEcosystem}
@@ -1088,6 +1099,8 @@ function DashboardView({
 function LearnView(props: {
   account: AccountSummary | null;
   authConfigured: boolean;
+  learnScreenMode: LearnScreenMode;
+  onBackToSelect: () => void;
   ecosystems: EcosystemOption[];
   selectedEcosystem: EcosystemOption;
   chooseEcosystem: (ecosystem: EcosystemOption) => void;
@@ -1124,166 +1137,332 @@ function LearnView(props: {
   const learningModule = props.moduleState?.module ?? null;
   const activeLesson = learningModule?.lessons[props.activeLessonIndex] ?? null;
   const selectedAnswer = activeLesson ? props.answers[activeLesson.id] : undefined;
-  const progress = learningModule ? Math.round((props.completedLessons / learningModule.lessons.length) * 100) : 0;
+
+  if (props.generationState === "loading") {
+    return <LearningGenerationLoader />;
+  }
+
+  if (props.learnScreenMode === "module" && props.moduleState && learningModule && activeLesson) {
+    return (
+      <GeneratedModuleView
+        moduleState={props.moduleState}
+        activeLesson={activeLesson}
+        activeLessonIndex={props.activeLessonIndex}
+        chooseLesson={props.chooseLesson}
+        selectedAnswer={selectedAnswer}
+        answers={props.answers}
+        chooseAnswer={props.chooseAnswer}
+        tutorQuestion={props.tutorQuestion}
+        setTutorQuestion={props.setTutorQuestion}
+        tutorMessages={props.tutorMessages}
+        tutorLoading={props.tutorLoading}
+        tutorError={props.tutorError}
+        onAskTutor={props.onAskTutor}
+        onStartQuest={props.onStartQuest}
+        questGenerationState={props.questGenerationState}
+        activeLessonPassed={props.activeLessonPassed}
+        onBackToSelect={props.onBackToSelect}
+      />
+    );
+  }
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-[1440px] flex-col gap-8 p-4 md:p-8">
-      <div className="flex flex-col gap-4 border-b border-glass-border pb-6 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="flex items-center gap-3 text-3xl font-extrabold tracking-tight text-white">
-            <GraduationCap className="h-8 w-8 text-electric-blue" />
+    <LearningSelectView
+      account={props.account}
+      authConfigured={props.authConfigured}
+      ecosystems={props.ecosystems}
+      selectedEcosystem={props.selectedEcosystem}
+      chooseEcosystem={props.chooseEcosystem}
+      topic={props.topic}
+      setTopic={props.setTopic}
+      profile={props.profile}
+      setProfile={props.setProfile}
+      pace={props.pace}
+      setPace={props.setPace}
+      intentList={props.intentList}
+      setIntentText={props.setIntentText}
+      generationError={props.generationError}
+      onGenerate={props.onGenerate}
+      syncWarning={props.syncWarning}
+    />
+  );
+}
+
+function LearningSelectView({
+  account,
+  authConfigured,
+  ecosystems,
+  selectedEcosystem,
+  chooseEcosystem,
+  topic,
+  setTopic,
+  profile,
+  setProfile,
+  pace,
+  setPace,
+  intentList,
+  setIntentText,
+  generationError,
+  onGenerate,
+  syncWarning,
+}: {
+  account: AccountSummary | null;
+  authConfigured: boolean;
+  ecosystems: EcosystemOption[];
+  selectedEcosystem: EcosystemOption;
+  chooseEcosystem: (ecosystem: EcosystemOption) => void;
+  topic: string;
+  setTopic: (topic: string) => void;
+  profile: string;
+  setProfile: (profile: string) => void;
+  pace: string;
+  setPace: (pace: string) => void;
+  intentList: string[];
+  setIntentText: (value: string) => void;
+  generationError: string | null;
+  onGenerate: () => Promise<void>;
+  syncWarning: string | null;
+}) {
+  const [configuringEcosystemId, setConfiguringEcosystemId] = useState<EcosystemId | null>(null);
+  const configuringEcosystem = configuringEcosystemId
+    ? ecosystems.find((ecosystem) => ecosystem.id === configuringEcosystemId) ?? selectedEcosystem
+    : null;
+
+  function openConfigurator(ecosystem: EcosystemOption) {
+    chooseEcosystem(ecosystem);
+    setConfiguringEcosystemId(ecosystem.id);
+  }
+
+  function toggleIntent(intent: string) {
+    const current = intentList.filter(Boolean);
+    const exists = current.includes(intent);
+    const next = exists ? current.filter((item) => item !== intent) : [...current, intent];
+    if (next.length === 0) return;
+    setIntentText(next.join("\n"));
+  }
+
+  return (
+    <main className="relative min-h-[calc(100vh-70px)] bg-[#03100e] px-6 text-white">
+      <section className="mx-auto flex min-h-[calc(100vh-70px)] max-w-[1140px] flex-col items-center justify-center pb-24 pt-14">
+        <div className="text-center">
+          <div className="mx-auto mb-7 flex h-[58px] w-[58px] items-center justify-center rounded-2xl border border-electric-blue/10 bg-electric-blue/[0.035] shadow-[0_0_40px_rgba(0,240,255,0.05)]">
+            <GraduationCap className="h-8 w-8 text-electric-blue" strokeWidth={2.2} aria-hidden="true" />
+          </div>
+          <h1 className="text-[48px] font-black leading-none tracking-[-0.055em] text-white md:text-[50px]">
             Learning Mode
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-on-surface-variant">
-            Choose an ecosystem, name the topic, set your learning intent, then let Core generate lessons with the configured AI provider.
+          <p className="mx-auto mt-8 max-w-[680px] text-center text-[19px] leading-8 text-white/48">
+            Choose an ecosystem, name the topic, set your learning intent, then let Core
+            <span className="block">generate lessons.</span>
           </p>
         </div>
-        {learningModule ? (
-          <div className="grid gap-3 sm:grid-cols-3">
-            <StatusPill label="Ecosystem" value={props.moduleState?.ecosystem.label ?? "Ecosystem"} tone="green" />
-            <StatusPill label="Progress" value={`${progress}%`} tone="blue" />
-            <StatusPill label="Cloud sync" value={syncStateLabel(props.syncState)} tone="amber" />
+
+        <div className="mt-16 grid w-full gap-6 md:grid-cols-3">
+          {ecosystems.map((ecosystem) => (
+            <button
+              key={ecosystem.id}
+              type="button"
+              onClick={() => openConfigurator(ecosystem)}
+              className="group min-h-[258px] rounded-2xl border border-white/[0.075] bg-[#071410] p-8 text-left transition hover:-translate-y-0.5 hover:border-electric-blue/35 hover:bg-[#081915] hover:shadow-[0_0_42px_rgba(0,240,255,0.06)]"
+            >
+              <span className="flex h-[54px] w-[54px] items-center justify-center rounded-xl border border-white/[0.035] bg-[#020b0a] text-xl font-black text-electric-blue shadow-[0_0_24px_rgba(0,240,255,0.04)]">
+                {ecosystem.label.charAt(0)}
+              </span>
+              <span className="mt-7 block text-2xl font-black tracking-[-0.04em] text-white">{ecosystem.label}</span>
+              <span className="mt-4 block max-w-[290px] text-[15px] leading-6 text-white/48">{ecosystem.detail}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {configuringEcosystem ? (
+        <SessionConfigModal
+          account={account}
+          authConfigured={authConfigured}
+          ecosystem={configuringEcosystem}
+          topic={topic}
+          setTopic={setTopic}
+          profile={profile}
+          setProfile={setProfile}
+          pace={pace}
+          setPace={setPace}
+          intentList={intentList}
+          toggleIntent={toggleIntent}
+          generationError={generationError}
+          syncWarning={syncWarning}
+          onGenerate={onGenerate}
+          onClose={() => setConfiguringEcosystemId(null)}
+        />
+      ) : null}
+    </main>
+  );
+}
+
+function SessionConfigModal({
+  account,
+  authConfigured,
+  ecosystem,
+  topic,
+  setTopic,
+  profile,
+  setProfile,
+  pace,
+  setPace,
+  intentList,
+  toggleIntent,
+  generationError,
+  syncWarning,
+  onGenerate,
+  onClose,
+}: {
+  account: AccountSummary | null;
+  authConfigured: boolean;
+  ecosystem: EcosystemOption;
+  topic: string;
+  setTopic: (topic: string) => void;
+  profile: string;
+  setProfile: (profile: string) => void;
+  pace: string;
+  setPace: (pace: string) => void;
+  intentList: string[];
+  toggleIntent: (intent: string) => void;
+  generationError: string | null;
+  syncWarning: string | null;
+  onGenerate: () => Promise<void>;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-[#010807]/72 px-5 pt-[60px] text-white backdrop-blur-[10px]">
+      <section className="w-full max-w-[672px] overflow-hidden rounded-2xl border border-white/[0.085] bg-[#071410] shadow-[0_32px_90px_rgba(0,0,0,0.55)]">
+        <header className="flex h-[86px] items-center justify-between border-b border-white/[0.075] px-6">
+          <div className="flex items-center gap-4">
+            <span className="rounded-md border border-electric-blue/25 bg-electric-blue/10 px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-electric-blue">
+              {ecosystem.label}
+            </span>
+            <h2 className="text-xl font-black tracking-[-0.035em] text-white">Configure Your Session</h2>
           </div>
-        ) : null}
-      </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close session configuration"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white/45 transition hover:bg-white/5 hover:text-white"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </header>
 
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[420px_1fr]">
-        <aside className="flex flex-col gap-6">
-          <section className="rounded-xl border border-electric-blue/30 bg-[#121820] p-5">
-            <div className="mb-4 flex items-center gap-2 border-b border-glass-border pb-3">
-              <BookOpen className="h-5 w-5 text-electric-blue" />
-              <h2 className="font-mono text-sm font-bold uppercase tracking-wider text-white">Lesson Setup</h2>
+        <div className="px-8 py-8">
+          <label className="grid gap-3">
+            <span className="text-sm font-black text-white">Topic</span>
+            <textarea
+              value={topic}
+              onChange={(event) => setTopic(event.target.value)}
+              rows={3}
+              className="min-h-[96px] resize-none rounded-xl border border-white/[0.07] bg-[#030b0a] px-4 py-4 text-[15px] leading-6 text-white/72 outline-none transition focus:border-electric-blue/45"
+            />
+          </label>
+
+          <div className="mt-8">
+            <span className="text-sm font-black text-white">Profile</span>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {PROFILES.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setProfile(item)}
+                  className={
+                    profile === item
+                      ? "rounded-xl bg-electric-blue px-4 py-3 text-sm font-black text-black shadow-[0_0_28px_rgba(0,240,255,0.18)]"
+                      : "rounded-xl border border-white/[0.075] bg-electric-blue/[0.035] px-4 py-3 text-sm font-semibold text-white/50 transition hover:border-electric-blue/25 hover:text-white"
+                  }
+                >
+                  {item}
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div className="grid gap-3">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-electric-blue">Ecosystem</span>
-              {props.ecosystems.map((ecosystem) => {
-                const selected = ecosystem.id === props.selectedEcosystem.id;
+          <div className="mt-8">
+            <span className="text-sm font-black text-white">Pace</span>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {PACES.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setPace(item)}
+                  className={
+                    pace === item
+                      ? "rounded-xl bg-electric-blue px-4 py-3 text-sm font-black text-black shadow-[0_0_28px_rgba(0,240,255,0.18)]"
+                      : "rounded-xl border border-white/[0.075] bg-electric-blue/[0.035] px-4 py-3 text-sm font-semibold text-white/50 transition hover:border-electric-blue/25 hover:text-white"
+                  }
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <span className="text-sm font-black text-white">Learning Intents</span>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {LEARNING_INTENT_OPTIONS.map((intent) => {
+                const selected = intentList.includes(intent);
                 return (
                   <button
-                    key={ecosystem.id}
+                    key={intent}
                     type="button"
-                    onClick={() => props.chooseEcosystem(ecosystem)}
+                    onClick={() => toggleIntent(intent)}
                     className={
                       selected
-                        ? `rounded-lg border p-3 text-left transition-colors ${ecosystem.accent}`
-                        : "rounded-lg border border-glass-border/70 bg-[#0B0C0E]/60 p-3 text-left transition-colors hover:border-electric-blue/30"
+                        ? "inline-flex items-center gap-3 rounded-full border border-electric-blue bg-electric-blue/10 px-4 py-3 text-sm text-electric-blue shadow-[0_0_24px_rgba(0,240,255,0.14)]"
+                        : "inline-flex items-center gap-3 rounded-full border border-white/[0.065] bg-[#020b0a] px-4 py-3 text-sm text-white/46 transition hover:border-electric-blue/25 hover:text-white"
                     }
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs font-bold text-white">{ecosystem.label}</span>
-                      {selected ? <CheckCircle2 className="h-4 w-4" /> : null}
-                    </div>
-                    <p className="mt-1 text-[11px] leading-relaxed text-on-surface-variant">{ecosystem.detail}</p>
+                    <span className={selected ? "h-2 w-2 rounded-full bg-electric-blue shadow-[0_0_12px_rgba(0,240,255,0.8)]" : "h-2 w-2 rounded-full bg-white/10"} />
+                    {intent}
                   </button>
                 );
               })}
             </div>
+          </div>
 
-            <label className="mt-5 grid gap-2">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-cyber-green">Topic</span>
-              <textarea
-                value={props.topic}
-                onChange={(event) => props.setTopic(event.target.value)}
-                rows={3}
-                className="rounded-lg border border-glass-border bg-[#0B0C0E] p-3 text-sm leading-relaxed text-white outline-none transition-colors focus:border-cyber-green/60"
-              />
-            </label>
+          {!account ? <Notice tone="amber" text="Google sign-in is required before Core can generate and bind learning state." /> : null}
+          {!authConfigured ? <Notice tone="red" text="Google authentication configuration is incomplete in the running web process." /> : null}
+          {generationError ? <Notice tone="red" text={generationError} /> : null}
+          {syncWarning ? <Notice tone="amber" text={syncWarning} /> : null}
+        </div>
 
-            <div className="mt-5 grid gap-3">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-cyber-green" />
-                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-cyber-green">Profile</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {PROFILES.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => props.setProfile(item)}
-                    className={
-                      props.profile === item
-                        ? "rounded-lg border border-cyber-green/45 bg-cyber-green/10 px-3 py-2 text-left text-[11px] font-bold text-white"
-                        : "rounded-lg border border-glass-border bg-[#0B0C0E]/70 px-3 py-2 text-left text-[11px] font-bold text-on-surface-variant hover:border-cyber-green/30 hover:text-white"
-                    }
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
+        <footer className="border-t border-white/[0.065] bg-[#081512] px-6 py-6">
+          <button
+            type="button"
+            onClick={() => void onGenerate()}
+            className="flex h-[60px] w-full items-center justify-center gap-3 rounded-xl bg-electric-blue text-lg font-black text-black shadow-[0_0_32px_rgba(0,240,255,0.14)] transition hover:brightness-110"
+          >
+            <Zap className="h-5 w-5 fill-black" aria-hidden="true" />
+            Generate Module
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
 
-            <div className="mt-5 grid gap-2">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-warning-amber">Pace</span>
-              <div className="grid grid-cols-2 gap-2">
-                {PACES.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => props.setPace(item)}
-                    className={
-                      props.pace === item
-                        ? "rounded-lg border border-warning-amber/45 bg-warning-amber/10 px-3 py-2 text-left text-[11px] font-bold text-white"
-                        : "rounded-lg border border-glass-border bg-[#0B0C0E]/70 px-3 py-2 text-left text-[11px] font-bold text-on-surface-variant hover:border-warning-amber/30 hover:text-white"
-                    }
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <label className="mt-5 grid gap-2">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-electric-blue">Learning intents</span>
-              <textarea
-                value={props.intentText}
-                onChange={(event) => props.setIntentText(event.target.value)}
-                rows={4}
-                className="rounded-lg border border-glass-border bg-[#0B0C0E] p-3 text-sm leading-relaxed text-white outline-none transition-colors focus:border-electric-blue/60"
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={() => void props.onGenerate()}
-              disabled={props.generationState === "loading"}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-electric-blue px-5 py-3 text-sm font-black uppercase tracking-wider text-black transition-all hover:brightness-110 disabled:brightness-50"
-            >
-              {props.generationState === "loading" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {props.generationState === "loading" ? "Generating Module" : "Generate Module"}
-            </button>
-
-            {!props.account ? <Notice tone="amber" text="Google sign-in is required before Core can generate and bind learning state." /> : null}
-            {!props.authConfigured ? <Notice tone="red" text="Google authentication configuration is incomplete in the running web process." /> : null}
-            {props.generationError ? <Notice tone="red" text={props.generationError} /> : null}
-            {props.syncWarning ? <Notice tone="amber" text={props.syncWarning} /> : null}
-          </section>
-        </aside>
-
-        <section className="min-w-0">
-          {props.moduleState && learningModule && activeLesson ? (
-            <GeneratedModuleView
-              moduleState={props.moduleState}
-              activeLesson={activeLesson}
-              activeLessonIndex={props.activeLessonIndex}
-              chooseLesson={props.chooseLesson}
-              selectedAnswer={selectedAnswer}
-              answers={props.answers}
-              chooseAnswer={props.chooseAnswer}
-              tutorQuestion={props.tutorQuestion}
-              setTutorQuestion={props.setTutorQuestion}
-              tutorMessages={props.tutorMessages}
-              tutorLoading={props.tutorLoading}
-              tutorError={props.tutorError}
-              onAskTutor={props.onAskTutor}
-              onStartQuest={props.onStartQuest}
-              questGenerationState={props.questGenerationState}
-              activeLessonPassed={props.activeLessonPassed}
-            />
-          ) : (
-            <EmptyLearningState selectedEcosystem={props.selectedEcosystem} intentList={props.intentList} />
-          )}
-        </section>
+function LearningGenerationLoader() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#03100e] px-6 text-electric-blue">
+      <div className="flex flex-col items-center">
+        <div className="relative flex h-[128px] w-[128px] items-center justify-center">
+          <span className="absolute inset-0 rounded-full border border-electric-blue/5" />
+          <span className="absolute inset-[8px] rounded-full border border-electric-blue/16 border-t-electric-blue animate-spin" />
+          <span className="absolute inset-[20px] rounded-full border border-electric-blue/10 border-r-electric-blue/70 animate-spin-slow" />
+          <Hexagon className="h-[70px] w-[70px] text-electric-blue drop-shadow-[0_0_24px_rgba(0,240,255,0.45)]" strokeWidth={3} aria-hidden="true" />
+        </div>
+        <p className="mt-7 font-mono text-[19px] tracking-[0.16em] text-electric-blue">
+          Generating your learning modules...
+        </p>
+        <div className="mt-20 h-px w-[190px] overflow-hidden bg-electric-blue/8">
+          <span className="block h-full w-1/2 animate-pulse bg-electric-blue/45" />
+        </div>
       </div>
     </main>
   );
@@ -1306,6 +1485,7 @@ function GeneratedModuleView({
   onStartQuest,
   questGenerationState,
   activeLessonPassed,
+  onBackToSelect,
 }: {
   moduleState: ModuleState;
   activeLesson: LearningLessonDto;
@@ -1323,198 +1503,251 @@ function GeneratedModuleView({
   onStartQuest: () => void;
   questGenerationState: "idle" | "loading";
   activeLessonPassed: boolean;
+  onBackToSelect: () => void;
 }) {
   const learningModule = moduleState.module;
+  const [draftAnswer, setDraftAnswer] = useState<number | undefined>(selectedAnswer);
+  const lessonTutorMessages = tutorMessages.filter((message) => !message.lessonId || message.lessonId === activeLesson.id);
+
+  useEffect(() => {
+    setDraftAnswer(selectedAnswer);
+  }, [activeLesson.id, selectedAnswer]);
+
+  function lessonPassed(lesson: LearningLessonDto) {
+    return answers[lesson.id] === lesson.checkpoint.correct_index;
+  }
+
+  function lessonUnlocked(index: number) {
+    if (index === 0) return true;
+    if (index <= activeLessonIndex) return true;
+    return lessonPassed(learningModule.lessons[index - 1]);
+  }
+
+  const paragraphs = [activeLesson.why_it_matters, ...activeLesson.explanation.split(/\n{2,}/)]
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .slice(0, 4);
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-glass-border bg-[#11161D]">
-      <header className="border-b border-glass-border p-5 md:p-6">
-        <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyber-green">
-          <Network className="h-4 w-4" />
-          {moduleState.ecosystem.label}
-          <ChevronRight className="h-4 w-4 text-on-surface-variant" />
-          {moduleState.topic}
+    <main className="min-h-screen bg-[#03100e] text-white lg:grid lg:grid-cols-[148px_minmax(0,1fr)]">
+      <aside className="border-b border-white/[0.07] bg-[#061410] lg:min-h-screen lg:border-b-0 lg:border-r">
+        <div className="px-1 py-4">
+          <button
+            type="button"
+            onClick={onBackToSelect}
+            className="mb-3 font-mono text-[8px] font-black uppercase tracking-[0.16em] text-white/45 transition hover:text-electric-blue"
+          >
+            ‹ Back to select
+          </button>
+          <p className="truncate font-mono text-[7px] font-black uppercase tracking-[0.16em] text-electric-blue">
+            {moduleState.ecosystem.label} · {moduleState.topic}
+          </p>
+          <h2 className="mt-2 text-[11px] font-black text-white">Module Pathway</h2>
         </div>
-        <h2 className="mt-3 text-2xl font-black text-white md:text-3xl">{learningModule.title}</h2>
-        <p className="mt-2 max-w-4xl text-sm leading-relaxed text-on-surface-variant">{learningModule.outcome}</p>
-      </header>
 
-      <div className="grid min-w-0 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <nav className="border-b border-glass-border bg-[#0B0C0E]/45 xl:border-b-0 xl:border-r" aria-label="Generated lessons">
+        <nav className="space-y-2 px-2 pb-5" aria-label="Module pathway">
           {learningModule.lessons.map((lesson, index) => {
             const active = index === activeLessonIndex;
-            const passed = answers[lesson.id] === lesson.checkpoint.correct_index;
+            const passed = lessonPassed(lesson);
+            const locked = !lessonUnlocked(index);
+            const status = locked ? "Locked" : active ? "In progress" : passed ? "Checkpoint passed" : "Checkpoint open";
             return (
               <button
                 key={lesson.id}
                 type="button"
-                onClick={() => chooseLesson(index)}
+                onClick={() => {
+                  if (!locked) chooseLesson(index);
+                }}
+                disabled={locked}
                 className={
                   active
-                    ? "grid min-h-24 w-full grid-cols-[32px_minmax(0,1fr)_20px] items-start gap-3 border-b border-glass-border border-l-2 border-l-electric-blue bg-white/5 px-4 py-4 text-left"
-                    : "grid min-h-24 w-full grid-cols-[32px_minmax(0,1fr)_20px] items-start gap-3 border-b border-glass-border border-l-2 border-l-transparent px-4 py-4 text-left hover:bg-white/5"
+                    ? "grid min-h-[56px] w-full grid-cols-[17px_minmax(0,1fr)_14px] gap-1 rounded-md border border-electric-blue/60 bg-electric-blue/10 px-2 py-2 text-left shadow-[0_0_24px_rgba(0,240,255,0.08)]"
+                    : locked
+                      ? "grid min-h-[56px] w-full grid-cols-[17px_minmax(0,1fr)_14px] gap-1 rounded-md border border-transparent bg-[#06110e]/45 px-2 py-2 text-left opacity-35"
+                      : "grid min-h-[56px] w-full grid-cols-[17px_minmax(0,1fr)_14px] gap-1 rounded-md border border-white/[0.055] bg-[#030b0a] px-2 py-2 text-left transition hover:border-electric-blue/25"
                 }
               >
-                <span className={active ? "text-xs font-black text-electric-blue" : "text-xs font-black text-white/30"}>
-                  {String(index + 1).padStart(2, "0")}
-                </span>
+                <span className="font-mono text-[9px] text-white/42">{String(index + 1).padStart(2, "0")}</span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-black leading-5 text-white">{lesson.title}</span>
-                  <span className="mt-1 block text-xs leading-5 text-on-surface-variant">
-                    {passed ? "Checkpoint passed" : "Checkpoint open"}
+                  <span className="line-clamp-2 text-[10px] font-medium leading-3 text-white/72">{lesson.title}</span>
+                  <span className={passed ? "mt-1 block font-mono text-[7px] font-black uppercase tracking-[0.14em] text-cyber-green" : active ? "mt-1 block font-mono text-[7px] font-black uppercase tracking-[0.14em] text-warning-amber" : "mt-1 block font-mono text-[7px] font-black uppercase tracking-[0.14em] text-white/28"}>
+                    {status}
                   </span>
                 </span>
-                <ChevronRight className={active ? "mt-0.5 h-4 w-4 text-electric-blue" : "mt-0.5 h-4 w-4 text-white/20"} />
+                {passed ? <CheckCircle2 className="h-3.5 w-3.5 text-cyber-green" aria-hidden="true" /> : locked ? <LockKeyhole className="h-3.5 w-3.5 text-white/30" aria-hidden="true" /> : <ChevronRight className="h-3.5 w-3.5 text-electric-blue" aria-hidden="true" />}
               </button>
             );
           })}
         </nav>
+      </aside>
 
-        <div className="min-w-0">
-          <section className="border-b border-glass-border p-5 md:p-7">
-            <div className="flex flex-wrap gap-2">
-              {activeLesson.concepts.map((concept) => (
-                <span key={concept} className="rounded-full border border-cyber-green/20 bg-cyber-green/10 px-3 py-1 text-xs font-bold text-cyber-green">
-                  {concept}
-                </span>
+      <section className="min-w-0 px-5 py-6 lg:px-0">
+        <div className="mx-auto w-full max-w-[680px]">
+          <article>
+            <h1 className="text-[24px] font-black leading-tight tracking-[-0.045em] text-white md:text-[26px]">
+              {activeLesson.title}
+            </h1>
+            <div className="mt-5 space-y-5 text-[13px] leading-6 text-white/60">
+              {paragraphs.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
               ))}
             </div>
-            <h3 className="mt-4 text-2xl font-black text-white">{activeLesson.title}</h3>
-            <p className="mt-3 text-sm font-semibold leading-6 text-on-surface-variant">{activeLesson.why_it_matters}</p>
-            <div className="mt-5 whitespace-pre-wrap text-sm leading-7 text-on-surface">{activeLesson.explanation}</div>
-          </section>
 
-          <section className="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <div className="border-b border-glass-border p-5 md:p-7 lg:border-b-0 lg:border-r">
-              <div className="rounded-xl border border-electric-blue/20 bg-[#0B0C0E] p-4">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-electric-blue">
-                  <Code2 className="h-4 w-4" />
-                  Quest bridge
-                </div>
-                <p className="mt-3 text-sm leading-6 text-on-surface-variant">{activeLesson.quest_bridge}</p>
-                <button
-                  type="button"
-                  onClick={onStartQuest}
-                  disabled={!activeLessonPassed || questGenerationState === "loading"}
-                  className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-cyber-green px-4 text-xs font-black uppercase tracking-wider text-black disabled:brightness-50"
-                >
-                  {questGenerationState === "loading" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                  {activeLessonPassed ? "Generate Lesson Quest" : "Pass Checkpoint First"}
-                </button>
+            <div className="mt-8 overflow-hidden rounded-md border border-white/[0.075] bg-[#020b0a]">
+              <div className="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.035] px-3">
+                <ChevronRight className="h-3.5 w-3.5 text-electric-blue" aria-hidden="true" />
+                <span className="font-mono text-[8px] font-black uppercase tracking-[0.18em] text-white/35">lesson_manifest.json</span>
               </div>
-
-              <div className="mt-5 rounded-xl border border-glass-border bg-[#0B0C0E] p-4">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-cyber-green">
-                  <MessageSquare className="h-4 w-4" />
-                  Tutor
-                </div>
-                <div className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
-                  {tutorMessages.length === 0 ? (
-                    <p className="text-sm leading-6 text-on-surface-variant">
-                      Ask about the generated lesson, its code lens, checkpoint, or denial-test bridge.
-                    </p>
-                  ) : (
-                    tutorMessages.map((message) => (
-                      <div key={message.id} className={message.role === "mentor" ? "rounded-lg bg-electric-blue/10 p-3" : "rounded-lg bg-white/5 p-3"}>
-                        <p className="text-xs font-black uppercase tracking-wider text-on-surface-variant">{message.role === "mentor" ? "Tutor" : "You"}</p>
-                        <p className="mt-2 text-sm leading-6 text-on-surface">{message.text}</p>
-                        {message.why ? <p className="mt-2 text-xs leading-5 text-cyber-green">{message.why}</p> : null}
-                        {message.followUp ? <p className="mt-2 text-xs leading-5 text-electric-blue">{message.followUp}</p> : null}
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                  <input
-                    value={tutorQuestion}
-                    onChange={(event) => setTutorQuestion(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        void onAskTutor();
-                      }
-                    }}
-                    className="min-h-11 flex-1 rounded-lg border border-glass-border bg-[#11161D] px-3 text-sm text-white outline-none focus:border-electric-blue/60"
-                    aria-label="Tutor question"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void onAskTutor()}
-                    disabled={tutorLoading || tutorQuestion.trim().length === 0}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-cyber-green px-4 text-sm font-black text-black disabled:brightness-50"
-                  >
-                    {tutorLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Ask
-                  </button>
-                </div>
-                {tutorError ? <p className="mt-3 text-xs text-red-300">{tutorError}</p> : null}
-              </div>
+              <pre className="max-h-[300px] overflow-auto p-4 font-mono text-[11px] leading-5 text-white/72 scrollbar-none">
+                <code>{formatLessonManifest(moduleState, activeLesson)}</code>
+              </pre>
             </div>
+          </article>
 
-            <aside className="bg-[#0D1117] p-5 md:p-6">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-warning-amber">
-                <Brain className="h-4 w-4" />
+          <div className="my-8 h-px bg-white/[0.075]" />
+
+          <section className="grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-md border border-electric-blue/35 bg-[#071410] p-5 shadow-[0_-1px_0_0_rgba(0,240,255,0.7)]">
+              <div className="flex items-center gap-2 font-mono text-[9px] font-black uppercase tracking-[0.18em] text-electric-blue">
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                 Checkpoint
               </div>
-              <p className="mt-3 text-sm font-bold leading-6 text-white">{activeLesson.checkpoint.question}</p>
-              <div className="mt-4 space-y-2">
+              <p className="mt-5 text-[12px] font-semibold leading-5 text-white">
+                {activeLesson.checkpoint.question}
+              </p>
+              <div className="mt-5 space-y-3">
                 {activeLesson.checkpoint.options.map((option, index) => {
-                  const selected = selectedAnswer === index;
+                  const selected = draftAnswer === index;
+                  const submitted = selectedAnswer === index;
                   const correct = index === activeLesson.checkpoint.correct_index;
                   return (
                     <button
                       key={`${activeLesson.id}-${option.label}`}
                       type="button"
-                      onClick={() => chooseAnswer(activeLesson, index)}
+                      onClick={() => setDraftAnswer(index)}
                       className={
-                        selected
-                          ? correct
-                            ? "grid w-full grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-lg border border-cyber-green/50 bg-cyber-green/10 px-3 py-3 text-left"
-                            : "grid w-full grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-lg border border-red-400/50 bg-red-500/10 px-3 py-3 text-left"
-                          : "grid w-full grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-lg border border-glass-border bg-[#0B0C0E] px-3 py-3 text-left hover:border-electric-blue/40"
+                        submitted && correct
+                          ? "grid w-full grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-md border border-cyber-green/40 bg-cyber-green/10 px-3 py-3 text-left"
+                          : submitted && !correct
+                            ? "grid w-full grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-md border border-red-400/45 bg-red-500/10 px-3 py-3 text-left"
+                            : selected
+                              ? "grid w-full grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-md border border-electric-blue/45 bg-electric-blue/10 px-3 py-3 text-left"
+                              : "grid w-full grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-md border border-white/[0.055] bg-[#020b0a] px-3 py-3 text-left transition hover:border-electric-blue/25"
                       }
                     >
-                      <span className="text-xs font-black text-white/45">{String.fromCharCode(65 + index)}</span>
-                      <span className="text-xs leading-5 text-on-surface">{option.label}</span>
+                      <span className="font-mono text-[10px] font-black text-electric-blue">{String.fromCharCode(65 + index)}</span>
+                      <span className="text-[11px] leading-5 text-white/66">{option.label}</span>
                     </button>
                   );
                 })}
               </div>
               {selectedAnswer !== undefined ? (
-                <div className="mt-4 rounded-lg border border-glass-border bg-[#0B0C0E] p-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-                    {selectedAnswer === activeLesson.checkpoint.correct_index ? "Passed" : "Review"}
+                <div className="mt-4 rounded-md border border-white/[0.06] bg-[#020b0a] p-3">
+                  <p className="font-mono text-[8px] font-black uppercase tracking-[0.16em] text-white/38">
+                    {activeLessonPassed ? "Checkpoint passed" : "Review answer"}
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-on-surface">{activeLesson.checkpoint.options[selectedAnswer]?.feedback}</p>
-                  <p className="mt-2 text-xs leading-5 text-electric-blue">{activeLesson.checkpoint.follow_up_question}</p>
+                  <p className="mt-2 text-[11px] leading-5 text-white/60">
+                    {activeLesson.checkpoint.options[selectedAnswer]?.feedback}
+                  </p>
+                  <p className="mt-2 text-[11px] leading-5 text-electric-blue/80">
+                    {activeLesson.checkpoint.follow_up_question}
+                  </p>
                 </div>
               ) : null}
-            </aside>
+              <button
+                type="button"
+                onClick={() => {
+                  if (draftAnswer !== undefined) chooseAnswer(activeLesson, draftAnswer);
+                }}
+                disabled={draftAnswer === undefined}
+                className="mt-5 h-11 w-full rounded-md bg-white/[0.04] font-mono text-[9px] font-black uppercase tracking-[0.16em] text-white/45 transition hover:bg-electric-blue hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {activeLessonPassed ? "Checkpoint passed" : "Submit answer"}
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-md border border-warning-amber/25 bg-[#071410] p-4 shadow-[0_-1px_0_0_rgba(255,184,0,0.55)]">
+                <div className="flex items-center gap-2 font-mono text-[9px] font-black uppercase tracking-[0.18em] text-warning-amber">
+                  <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                  Quest Mentor
+                </div>
+                <p className="mt-4 text-[10px] leading-4 text-white/42">
+                  Ask about the generated lesson, its code, checkpoint, or deeper questions.
+                </p>
+                <textarea
+                  value={tutorQuestion}
+                  onChange={(event) => setTutorQuestion(event.target.value)}
+                  rows={3}
+                  placeholder="e.g. What happens if the user pays twice?"
+                  className="mt-3 min-h-[74px] w-full resize-none rounded-md border border-white/[0.055] bg-[#020b0a] px-3 py-3 text-[11px] leading-5 text-white outline-none placeholder:text-white/25 focus:border-electric-blue/35"
+                />
+                <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                  <button
+                    type="button"
+                    onClick={onStartQuest}
+                    disabled={!activeLessonPassed || questGenerationState === "loading"}
+                    className="flex h-9 items-center justify-center gap-2 rounded-md bg-electric-blue text-[10px] font-black text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-50"
+                  >
+                    {questGenerationState === "loading" ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Zap className="h-3.5 w-3.5 fill-black" aria-hidden="true" />}
+                    Generate Quest
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void onAskTutor()}
+                    disabled={tutorLoading || tutorQuestion.trim().length === 0}
+                    className="h-9 rounded-md bg-white/[0.06] px-4 text-[10px] font-black text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {tutorLoading ? "..." : "Ask"}
+                  </button>
+                </div>
+                {tutorError ? <p className="mt-3 text-[10px] leading-4 text-red-300">{tutorError}</p> : null}
+              </div>
+
+              <div className="rounded-md border border-white/[0.075] bg-[#071410]">
+                <div className="flex h-8 items-center gap-2 border-b border-white/[0.06] px-3 font-mono text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                  <Brain className="h-3 w-3" aria-hidden="true" />
+                  Tutor
+                </div>
+                <div className="max-h-[138px] space-y-3 overflow-y-auto p-3 scrollbar-none">
+                  {lessonTutorMessages.length === 0 ? (
+                    <p className="rounded-md border border-white/[0.055] bg-[#020b0a] p-3 text-[11px] leading-5 text-white/45">
+                      Ask a question above to start the tutor session for this lesson.
+                    </p>
+                  ) : (
+                    lessonTutorMessages.map((message) => (
+                      <div key={message.id} className={message.role === "mentor" ? "rounded-md border border-electric-blue/25 bg-electric-blue/10 p-3" : "rounded-md border border-white/[0.055] bg-[#020b0a] p-3"}>
+                        <p className="font-mono text-[8px] font-black uppercase tracking-[0.14em] text-white/35">
+                          {message.role === "mentor" ? "Tutor" : "Me"}
+                        </p>
+                        <p className="mt-2 text-[11px] leading-5 text-white/68">{message.text}</p>
+                        {message.why ? <p className="mt-2 text-[10px] leading-4 text-cyber-green/75">{message.why}</p> : null}
+                        {message.followUp ? <p className="mt-2 text-[10px] leading-4 text-electric-blue/75">{message.followUp}</p> : null}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </section>
         </div>
-      </div>
-    </article>
+      </section>
+    </main>
   );
 }
 
-function EmptyLearningState({ selectedEcosystem, intentList }: { selectedEcosystem: EcosystemOption; intentList: string[] }) {
-  return (
-    <section className="flex min-h-[520px] items-center justify-center rounded-2xl border border-dashed border-glass-border bg-[#11161D] p-6">
-      <div className="max-w-xl text-center">
-        <ShieldCheck className="mx-auto h-12 w-12 text-electric-blue" />
-        <h2 className="mt-4 text-2xl font-black text-white">Generate a {selectedEcosystem.label} module</h2>
-        <p className="mt-3 text-sm leading-relaxed text-on-surface-variant">
-          Core will generate the lessons from the selected ecosystem, topic, profile, and intents. Lesson content appears here only after the AI response passes schema validation.
-        </p>
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
-          {intentList.map((intent) => (
-            <span key={intent} className="rounded-full border border-electric-blue/20 bg-electric-blue/10 px-3 py-1 text-xs font-bold text-electric-blue">
-              {intent}
-            </span>
-          ))}
-        </div>
-      </div>
-    </section>
+function formatLessonManifest(moduleState: ModuleState, lesson: LearningLessonDto) {
+  return JSON.stringify(
+    {
+      ecosystem: moduleState.ecosystem.id,
+      module: moduleState.module.title,
+      lesson: lesson.title,
+      concepts: lesson.concepts,
+      checkpoint: lesson.checkpoint.question,
+      quest_bridge: lesson.quest_bridge,
+    },
+    null,
+    2,
   );
 }
 
@@ -1803,16 +2036,6 @@ function Panel({ title, icon, action, onAction, children }: { title: string; ico
       </div>
       {children}
     </section>
-  );
-}
-
-function StatusPill({ label, value, tone }: { label: string; value: string; tone: "blue" | "green" | "amber" }) {
-  const color = tone === "blue" ? "border-electric-blue/25 bg-electric-blue/5 text-electric-blue" : tone === "green" ? "border-cyber-green/25 bg-cyber-green/5 text-cyber-green" : "border-warning-amber/25 bg-warning-amber/5 text-warning-amber";
-  return (
-    <div className={`rounded-xl border px-5 py-3 ${color}`}>
-      <span className="font-mono text-[10px] font-bold uppercase tracking-wider">{label}</span>
-      <p className="mt-1 text-sm font-black uppercase text-white">{value}</p>
-    </div>
   );
 }
 

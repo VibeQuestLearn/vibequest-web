@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircle, LogIn, LogOut, UserRound } from "lucide-react";
+import { LoaderCircle, UserRound } from "lucide-react";
 import { signIn, signOut } from "next-auth/react";
 import { useState } from "react";
 
@@ -46,39 +46,28 @@ export function AccountControl({
 
   if (account) {
     return (
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#e8ecef]">
-          <UserRound className="h-4 w-4 text-black/55" aria-hidden="true" />
-        </div>
-        <div className="hidden min-w-0 text-left sm:block">
-          <p className="max-w-48 truncate text-xs font-semibold">
-            {account.name || "Google account"}
-          </p>
-          <p className="max-w-48 truncate text-xs text-black/45">
-            {account.email || account.id}
-          </p>
-          {error ? <p className="text-xs text-[#a12f24]">{error}</p> : null}
-        </div>
+      <div className="relative">
         <button
           type="button"
           onClick={startSignOut}
           disabled={pending !== null}
-          title="Sign out"
-          aria-label="Sign out"
-          className="flex h-9 w-9 shrink-0 items-center justify-center border border-black/10 bg-white text-black/60 disabled:opacity-40"
+          title={`Signed in${account.email ? ` as ${account.email}` : ""}. Click to sign out.`}
+          aria-label="Account menu"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#071210] text-white/58 transition hover:border-electric-blue/35 hover:text-electric-blue disabled:opacity-40"
         >
           {pending === "sign-out" ? (
             <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
-            <LogOut className="h-4 w-4" aria-hidden="true" />
+            <UserRound className="h-4 w-4" aria-hidden="true" />
           )}
         </button>
+        {error ? <p className="absolute right-0 top-full mt-2 w-56 rounded-md border border-red-500/25 bg-[#071210] p-2 text-right text-xs text-red-300">{error}</p> : null}
       </div>
     );
   }
 
   return (
-    <div className="text-right">
+    <div className="relative">
       <button
         type="button"
         onClick={startSignIn}
@@ -88,16 +77,16 @@ export function AccountControl({
             ? "Sign in with Google"
             : "Google authentication is not configured."
         }
-        className="inline-flex h-9 items-center justify-center gap-2 bg-black px-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Sign in with Google"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#071210] text-white/58 transition hover:border-electric-blue/35 hover:text-electric-blue disabled:cursor-not-allowed disabled:opacity-40"
       >
         {pending === "sign-in" ? (
           <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
-          <LogIn className="h-4 w-4" aria-hidden="true" />
+          <UserRound className="h-4 w-4" aria-hidden="true" />
         )}
-        Sign in with Google
       </button>
-      {error ? <p className="mt-1 text-xs text-[#a12f24]">{error}</p> : null}
+      {error ? <p className="absolute right-0 top-full mt-2 w-56 rounded-md border border-red-500/25 bg-[#071210] p-2 text-right text-xs text-red-300">{error}</p> : null}
     </div>
   );
 }
