@@ -1022,7 +1022,7 @@ function LandingView({
           </button>
 
           <nav className="hidden items-center gap-12 font-mono text-[9px] font-bold uppercase tracking-[0.34em] text-white/55 md:flex" aria-label="Landing sections">
-            <a className="transition hover:text-electric-blue" href="#chains">Chains</a>
+            <button type="button" onClick={onLearn} className="transition hover:text-electric-blue">Learn</button>
             <a className="transition hover:text-electric-blue" href="#workflow">Workflow</a>
             <a className="transition hover:text-electric-blue" href="#quests">Quests</a>
           </nav>
