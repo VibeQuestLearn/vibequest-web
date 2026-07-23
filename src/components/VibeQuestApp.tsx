@@ -392,6 +392,7 @@ export function VibeQuestApp({
     setRequestedCourseId(courseId);
     setRequestedLessonId(lessonId ?? null);
     setLearnScreenMode("module");
+    scrollLearningViewToTop();
   }
 
   function applySessionRecord(
@@ -3150,6 +3151,13 @@ function pushAppPath(path: string) {
   if (typeof window === "undefined") return;
   if (window.location.pathname === path) return;
   window.history.pushState({}, "", path);
+}
+
+function scrollLearningViewToTop() {
+  if (typeof window === "undefined") return;
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  });
 }
 
 function createCourseId(): string {
