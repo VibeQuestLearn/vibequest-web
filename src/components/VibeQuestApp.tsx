@@ -23,7 +23,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getSession } from "next-auth/react";
 
 import {
@@ -55,6 +55,7 @@ type TabId = "landing" | "dashboard" | "learn" | "workbench";
 type SyncState = "idle" | "loading" | "saving" | "saved" | "local-only";
 type LearnScreenMode = "select" | "module";
 type GenerationState = "idle" | "loading" | "background";
+type SessionCheckState = "checking" | "resolved";
 type CourseGenerationStatus = "ready" | "generating" | "complete" | "error";
 
 type EcosystemOption = {
@@ -206,6 +207,9 @@ export function VibeQuestApp({
 }) {
   const initialRoute = currentAppRoute(initialPath);
   const [account, setAccount] = useState<AccountSummary | null>(initialAccount);
+  const [sessionCheckState, setSessionCheckState] = useState<SessionCheckState>(
+    initialAccount ? "resolved" : "checking",
+  );
   const [activeTab, setActiveTab] = useState<TabId>(initialRoute.tab);
   const [requestedCourseId, setRequestedCourseId] = useState<string | null>(initialRoute.courseId);
   const [requestedLessonId, setRequestedLessonId] = useState<string | null>(initialRoute.lessonId);
@@ -249,6 +253,9 @@ export function VibeQuestApp({
 
   useEffect(() => {
     setAccount(initialAccount);
+    if (initialAccount) {
+      setSessionCheckState("resolved");
+    }
   }, [initialAccount]);
 
   useEffect(() => {
@@ -259,8 +266,12 @@ export function VibeQuestApp({
         const session = await getSession();
         if (!cancelled) {
           setAccount(accountSummaryFromSession(session));
+          setSessionCheckState("resolved");
         }
       } catch {
+        if (!cancelled) {
+          setSessionCheckState("resolved");
+        }
         // Keep the last known server-provided account if the client refresh fails.
       }
     }
@@ -362,8 +373,11 @@ export function VibeQuestApp({
       if (requested) {
         applySessionRecord(requested, { openModule: true, lessonId: requestedLessonId });
       } else if (libraryState !== "loading") {
-        setSyncWarning("That course could not be found for this Google account.");
+        setSyncWarning("That course could not be found for this Google account. Choose a saved course or generate a new one.");
+        setRequestedCourseId(null);
+        setRequestedLessonId(null);
         setLearnScreenMode("select");
+        replaceAppPath("/learn");
       }
       return;
     }
@@ -401,8 +415,12 @@ export function VibeQuestApp({
   ) {
     const ecosystem = ecosystemById(asEcosystemId(record.ecosystem_id) ?? "zcash");
     const intents = record.learning_intents.length > 0 ? record.learning_intents : parseIntents(record.learner_goal);
+    const requestedLessonIndex = options.lessonId
+      ? record.module.lessons.findIndex((lesson) => lesson.id === options.lessonId)
+      : -1;
+    const requestedLessonMissing = Boolean(options.lessonId && requestedLessonIndex < 0);
     const nextLessonIndex = options.lessonId
-      ? Math.max(0, record.module.lessons.findIndex((lesson) => lesson.id === options.lessonId))
+      ? Math.max(0, requestedLessonIndex)
       : Math.min(record.active_lesson_index, Math.max(record.module.lessons.length - 1, 0));
     setEcosystemId(ecosystem.id);
     setTopic(record.topic || ecosystem.defaultTopic);
@@ -427,6 +445,14 @@ export function VibeQuestApp({
     });
     if (options.openModule) {
       setLearnScreenMode("module");
+    }
+    if (requestedLessonMissing) {
+      const fallbackLesson = record.module.lessons[nextLessonIndex] ?? record.module.lessons[0] ?? null;
+      setSyncWarning("That lesson could not be found in this course. Opening the nearest available module.");
+      setRequestedLessonId(fallbackLesson?.id ?? null);
+      if (fallbackLesson) {
+        replaceAppPath(`/courses/${encodeURIComponent(record.module_id)}/lessons/${encodeURIComponent(fallbackLesson.id)}`);
+      }
     }
     setActiveLessonIndex(nextLessonIndex < 0 ? 0 : nextLessonIndex);
     setAnswers(record.checkpoint_answers ?? {});
@@ -552,6 +578,36 @@ export function VibeQuestApp({
       setModuleState((existing) => existing?.id === runId ? { ...existing, generationStatus: "error" } : existing);
       setGenerationError(error instanceof Error ? error.message : "Some modules could not be generated yet.");
     }
+  }
+
+  async function resumeCourseGeneration() {
+    if (!account || !moduleState) return;
+    const nextStartIndex = moduleState.module.lessons.length;
+    if (nextStartIndex >= moduleState.totalLessons || moduleState.generationStatus === "generating") return;
+
+    const runId = moduleState.id;
+    generationRunRef.current = runId;
+    setGenerationState("background");
+    setGenerationError(null);
+    setSyncWarning(null);
+
+    const activeState: ModuleState = { ...moduleState, generationStatus: "generating" };
+    setModuleState(activeState);
+    await persistLearningState(activeState, answersRef.current, activeLessonIndexRef.current, tutorMessagesRef.current);
+
+    const request = {
+      ecosystem_id: activeState.ecosystem.id,
+      path_id: activeState.ecosystem.pathId,
+      topic: activeState.topic,
+      learning_profile: activeState.profile,
+      learning_intents: activeState.intents,
+      interests: activeState.interests,
+      learner_goal: activeState.learnerGoal,
+      background: activeState.profile,
+      pace: activeState.pace,
+    };
+
+    void continueProgressiveGeneration(runId, activeState, request, nextStartIndex);
   }
 
   async function persistLearningState(
@@ -777,6 +833,14 @@ export function VibeQuestApp({
     );
   }
 
+  if (!account && sessionCheckState === "checking") {
+    return (
+      <ProtectedShell account={account} authConfigured={authConfigured} onLogo={() => navigateToTab("landing")}>
+        <SessionRestoreView />
+      </ProtectedShell>
+    );
+  }
+
   if (!account) {
     return (
       <div className="min-h-screen overflow-x-hidden bg-[#030d0b] font-sans text-on-surface">
@@ -923,6 +987,7 @@ export function VibeQuestApp({
           onStartQuest={() => void startLessonQuest()}
           questGenerationState={questGenerationState}
           activeLessonPassed={activeLessonPassed}
+          onResumeGeneration={() => void resumeCourseGeneration()}
         />
       ) : null}
       {activeTab === "workbench" ? (
@@ -941,6 +1006,54 @@ export function VibeQuestApp({
   );
 }
 
+
+function ProtectedShell({
+  account,
+  authConfigured,
+  onLogo,
+  children,
+}: {
+  account: AccountSummary | null;
+  authConfigured: boolean;
+  onLogo: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-[#030d0b] font-sans text-on-surface">
+      <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#030b0a]/96 backdrop-blur-md">
+        <div className="mx-auto flex h-[70px] items-center justify-between gap-4 px-6">
+          <button type="button" onClick={onLogo} className="flex min-w-0 items-center gap-3 text-left">
+            <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+              <span className="absolute top-1 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue shadow-[0_0_18px_rgba(0,240,255,0.28)]" />
+              <span className="absolute top-3 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/85" />
+              <span className="absolute top-5 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/65" />
+            </span>
+            <span className="block truncate text-[22px] font-black tracking-[-0.03em] text-white">VibeQuest</span>
+          </button>
+          <AccountControl account={account} authConfigured={authConfigured} />
+        </div>
+      </header>
+      {children}
+    </div>
+  );
+}
+
+function SessionRestoreView() {
+  return (
+    <main className="flex min-h-[calc(100vh-70px)] items-center justify-center bg-[#03100e] px-5 py-12 text-white">
+      <section className="w-full max-w-xl rounded-2xl border border-electric-blue/20 bg-[#071410] p-8 text-center shadow-[0_0_60px_rgba(0,240,255,0.06)]">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-electric-blue/25 bg-electric-blue/10 text-electric-blue">
+          <LoaderCircle className="h-7 w-7 animate-spin" aria-hidden="true" />
+        </div>
+        <p className="mt-6 font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Restoring session</p>
+        <h1 className="mt-3 text-3xl font-black tracking-[-0.045em] text-white sm:text-4xl">Checking your Google login</h1>
+        <p className="mx-auto mt-4 max-w-md text-base leading-7 text-white/58">
+          If your session is still valid, VibeQuest will return you to this protected page without asking you to sign in again.
+        </p>
+      </section>
+    </main>
+  );
+}
 
 function ProtectedLoginView({ authConfigured }: { authConfigured: boolean }) {
   const path = typeof window === "undefined" ? "/dashboard" : `${window.location.pathname}${window.location.search}`;
@@ -1244,7 +1357,7 @@ function TerminalWindow({
   title: string;
   action?: string;
   className?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className={`overflow-hidden rounded-md border border-white/14 bg-[#030909]/88 shadow-[0_22px_90px_rgba(0,0,0,0.46)] backdrop-blur-sm ${className}`}>
@@ -1262,7 +1375,7 @@ function TerminalWindow({
   );
 }
 
-function LoopStep({ number, title, children }: { number: string; title: string; children: React.ReactNode }) {
+function LoopStep({ number, title, children }: { number: string; title: string; children: ReactNode }) {
   return (
     <div className="grid grid-cols-[44px_1fr] gap-5">
       <div className="relative flex justify-center">
@@ -1672,7 +1785,7 @@ function DashboardStatCard({
   title: string;
   value: string;
   detail: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   outlined?: boolean;
 }) {
   return (
@@ -1798,6 +1911,7 @@ function LearnView(props: {
   onStartQuest: () => void;
   questGenerationState: "idle" | "loading";
   activeLessonPassed: boolean;
+  onResumeGeneration: () => void;
 }) {
   const learningModule = props.moduleState?.module ?? null;
   const activeLesson = learningModule?.lessons[props.activeLessonIndex] ?? null;
@@ -1828,6 +1942,7 @@ function LearnView(props: {
         questGenerationState={props.questGenerationState}
         activeLessonPassed={props.activeLessonPassed}
         onBackToSelect={props.onBackToSelect}
+        onResumeGeneration={props.onResumeGeneration}
       />
     );
   }
@@ -2250,6 +2365,7 @@ function GeneratedModuleView({
   questGenerationState,
   activeLessonPassed,
   onBackToSelect,
+  onResumeGeneration,
 }: {
   moduleState: ModuleState;
   activeLesson: LearningLessonDto;
@@ -2269,6 +2385,7 @@ function GeneratedModuleView({
   questGenerationState: "idle" | "loading";
   activeLessonPassed: boolean;
   onBackToSelect: () => void;
+  onResumeGeneration: () => void;
 }) {
   const learningModule = moduleState.module;
   const [draftAnswer, setDraftAnswer] = useState<number | undefined>(selectedAnswer);
@@ -2315,6 +2432,9 @@ function GeneratedModuleView({
   const previousLesson = learningModule.lessons[activeLessonIndex - 1] ?? null;
   const nextLesson = learningModule.lessons[activeLessonIndex + 1] ?? null;
   const canOpenNextLesson = Boolean(nextLesson && activeLessonPassed);
+  const canResumeGeneration =
+    pendingLessonCount > 0 &&
+    (moduleState.generationStatus === "ready" || moduleState.generationStatus === "error");
 
   function captureSelection() {
     const selection = window.getSelection();
@@ -2415,7 +2535,20 @@ function GeneratedModuleView({
               <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-electric-blue">
                 {pendingLessonCount} module{pendingLessonCount === 1 ? "" : "s"} still generating
               </p>
-              <p className="mt-2 text-xs leading-5 text-white/45">You can keep learning while Core saves the remaining modules.</p>
+              <p className="mt-2 text-xs leading-5 text-white/45">
+                {canResumeGeneration
+                  ? "This partial course was restored from saved state. Generate the remaining modules when you are ready."
+                  : "You can keep learning while Core saves the remaining modules."}
+              </p>
+              {canResumeGeneration ? (
+                <button
+                  type="button"
+                  onClick={onResumeGeneration}
+                  className="mt-3 w-full rounded-lg bg-electric-blue px-3 py-2 text-xs font-black text-black transition hover:brightness-110"
+                >
+                  Generate remaining modules
+                </button>
+              ) : null}
             </div>
           ) : null}
         </nav>
@@ -2432,8 +2565,28 @@ function GeneratedModuleView({
                 Module 1 is ready. {pendingLessonCount > 0 ? `${pendingLessonCount} more module${pendingLessonCount === 1 ? "" : "s"} are still being generated and will appear in the pathway.` : "Final save is completing."}
               </div>
             ) : moduleState.generationStatus === "error" ? (
-              <div className="mt-5 rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-4 text-sm leading-6 text-warning-amber">
-                This course is usable, but some remaining modules did not finish generating. You can continue the available modules and regenerate later.
+              <div className="mt-5 flex flex-col gap-3 rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-4 text-sm leading-6 text-warning-amber sm:flex-row sm:items-center sm:justify-between">
+                <span>This course is usable, but some remaining modules did not finish generating. Continue now or generate the remaining modules.</span>
+                {canResumeGeneration ? (
+                  <button
+                    type="button"
+                    onClick={onResumeGeneration}
+                    className="h-10 shrink-0 rounded-lg bg-warning-amber px-4 text-xs font-black text-black transition hover:brightness-110"
+                  >
+                    Resume generation
+                  </button>
+                ) : null}
+              </div>
+            ) : canResumeGeneration ? (
+              <div className="mt-5 flex flex-col gap-3 rounded-xl border border-electric-blue/25 bg-electric-blue/[0.045] p-4 text-sm leading-6 text-electric-blue sm:flex-row sm:items-center sm:justify-between">
+                <span>This saved course has {pendingLessonCount} remaining module{pendingLessonCount === 1 ? "" : "s"} not generated yet.</span>
+                <button
+                  type="button"
+                  onClick={onResumeGeneration}
+                  className="h-10 shrink-0 rounded-lg bg-electric-blue px-4 text-xs font-black text-black transition hover:brightness-110"
+                >
+                  Generate remaining modules
+                </button>
               </div>
             ) : null}
             <div className="mt-6 space-y-6 text-base leading-8 text-white/68">
@@ -3078,7 +3231,7 @@ function WorkbenchView({
   );
 }
 
-function Panel({ title, icon, action, onAction, children }: { title: string; icon: React.ReactNode; action?: string; onAction?: () => void; children: React.ReactNode }) {
+function Panel({ title, icon, action, onAction, children }: { title: string; icon: ReactNode; action?: string; onAction?: () => void; children: ReactNode }) {
   return (
     <section className="rounded-2xl border border-glass-border bg-[#15181F] p-5">
       <div className="mb-4 flex items-center justify-between gap-3 border-b border-glass-border pb-3">
@@ -3151,6 +3304,12 @@ function pushAppPath(path: string) {
   if (typeof window === "undefined") return;
   if (window.location.pathname === path) return;
   window.history.pushState({}, "", path);
+}
+
+function replaceAppPath(path: string) {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname === path) return;
+  window.history.replaceState({}, "", path);
 }
 
 function scrollLearningViewToTop() {

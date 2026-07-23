@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { mintCoreAssertion } from "@/lib/core-assertion";
 
-export const maxDuration = 60;
+export const maxDuration = 180;
 export const dynamic = "force-dynamic";
 
 const CORE_API_BASE_URL = process.env.CORE_API_BASE_URL?.replace(/\/$/, "");
