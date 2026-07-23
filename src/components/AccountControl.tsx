@@ -58,16 +58,13 @@ export function AccountControl({
             <p className="max-w-56 truncate text-sm font-black leading-5 text-white">
               {account.name || "Google account"}
             </p>
-            <p className="max-w-56 truncate text-sm leading-5 text-white/55">
-              {account.email || account.id}
-            </p>
           </div>
         ) : null}
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
           disabled={pending !== null}
-          title={`Signed in${account.email ? ` as ${account.email}` : ""}. Open account menu.`}
+          title={`Signed in as ${account.name || "Google account"}. Open account menu.`}
           aria-label="Account menu"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#071210] text-white/58 transition hover:border-electric-blue/35 hover:text-electric-blue disabled:opacity-40"
         >
@@ -81,7 +78,6 @@ export function AccountControl({
           <div className="absolute right-0 top-full z-[90] mt-3 w-72 rounded-xl border border-white/10 bg-[#071410] p-3 text-left shadow-[0_24px_70px_rgba(0,0,0,0.5)]">
             <div className="border-b border-white/[0.07] pb-3">
               <p className="truncate text-sm font-black text-white">{account.name || "Google account"}</p>
-              <p className="mt-1 truncate text-xs text-white/48">{account.email || account.id}</p>
             </div>
             <button
               type="button"

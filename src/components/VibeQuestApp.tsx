@@ -19,7 +19,6 @@ import {
   Play,
   RefreshCw,
   ShieldCheck,
-  Ship,
   Terminal,
   X,
   Zap,
@@ -52,7 +51,7 @@ import {
   type WorkbenchFileDto,
 } from "@/lib/ai-learning";
 
-type TabId = "landing" | "dashboard" | "learn" | "quest-run" | "workbench" | "ship-gate";
+type TabId = "landing" | "dashboard" | "learn" | "workbench";
 type SyncState = "idle" | "loading" | "saving" | "saved" | "local-only";
 type LearnScreenMode = "select" | "module";
 type GenerationState = "idle" | "loading" | "background";
@@ -117,16 +116,16 @@ const ECOSYSTEMS: EcosystemOption[] = [
     label: "Web3 + Blockchain",
     pathId: "basics-web3-blockchain",
     accent: "text-electric-blue border-electric-blue/40 bg-electric-blue/10",
-    detail: "Web3 mental models, wallets, keys, signatures, transactions, nodes, consensus, finality, and protocol evidence.",
-    defaultTopic: "Web3 and blockchain fundamentals for AI-assisted protocol builders",
-    interests: ["Web3 Mental Models", "Blockchain Fundamentals", "Wallets and Signatures", "Transaction Evidence"],
-    questLabel: "Web3 foundations quest",
+    detail: "A true beginner path: what blockchains are, why wallets exist, what transactions do, and how Web3 apps connect to networks.",
+    defaultTopic: "Absolute beginner Web3 and blockchain fundamentals",
+    interests: ["What Blockchains Are", "Wallets as Accounts", "Transactions Step by Step", "Reading Block Explorers"],
+    questLabel: "Beginner Web3 foundations quest",
     suggestedTopics: [
-      "Wallets, private keys, public keys, addresses, signatures, and transaction authorization",
-      "Transactions, mempools, confirmations, finality, reorgs, and safe completion evidence",
-      "UTXO versus account models and why protocol evidence differs from application state",
-      "Smart contracts, scripts, state transitions, events, and verifier trust boundaries",
-      "Replay resistance, nonce design, signature domain separation, and denial testing basics",
+      "What is a blockchain: blocks, shared history, validators or miners, and why people trust the ledger",
+      "What is a wallet: accounts, addresses, recovery phrases, and what signing means in plain language",
+      "What is a transaction: sending value, paying fees, waiting for confirmation, and reading status",
+      "How Web3 apps work: connecting a wallet, approving actions, and spotting what the website cannot prove",
+      "How to stay safe as a beginner: phishing, seed phrases, wrong networks, fake popups, and irreversible mistakes",
     ],
   },
   {
@@ -189,12 +188,11 @@ const LEARNING_INTENT_OPTIONS = [
   "Read generated verifier code",
   "Design denial tests before shipping",
 ];
+const CODE_SNIPPET_INTENT = "Include interactive code snippets";
 const TABS: { id: TabId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "learn", label: "Learn" },
-  { id: "quest-run", label: "Quest Run" },
   { id: "workbench", label: "Workbench" },
-  { id: "ship-gate", label: "Ship Gate" },
 ];
 
 export function VibeQuestApp({
@@ -218,6 +216,7 @@ export function VibeQuestApp({
   const [profile, setProfile] = useState("Vibecoder");
   const [pace, setPace] = useState("Focused");
   const [intentText, setIntentText] = useState("Understand the trust boundary");
+  const [codeSnippetsEnabled, setCodeSnippetsEnabled] = useState(false);
   const [courseLibrary, setCourseLibrary] = useState<LearningSessionRecord[]>([]);
   const [libraryState, setLibraryState] = useState<SyncState>("idle");
   const [moduleState, setModuleState] = useState<ModuleState | null>(null);
@@ -408,7 +407,8 @@ export function VibeQuestApp({
     setTopic(record.topic || ecosystem.defaultTopic);
     setProfile(record.learning_profile || record.background || "Vibecoder");
     setPace(record.pace || "Focused");
-    setIntentText(intents.join("\n"));
+    setIntentText(intents.filter((intent) => intent !== CODE_SNIPPET_INTENT).join("\n"));
+    setCodeSnippetsEnabled(record.learning_intents.includes(CODE_SNIPPET_INTENT));
     setModuleState({
       id: record.module_id,
       source: record.source,
@@ -464,14 +464,18 @@ export function VibeQuestApp({
     setLearnScreenMode("module");
     navigateToTab("learn");
 
+    const generationIntents = codeSnippetsEnabled ? [...intentList, CODE_SNIPPET_INTENT] : intentList;
+    const generationInterests = codeSnippetsEnabled
+      ? [...selectedEcosystem.interests, "Interactive code samples"]
+      : selectedEcosystem.interests;
     const request = {
       ecosystem_id: selectedEcosystem.id,
       path_id: selectedEcosystem.pathId,
       topic: trimmedTopic,
       learning_profile: profile,
-      learning_intents: intentList,
-      interests: selectedEcosystem.interests,
-      learner_goal: buildLearnerGoal(selectedEcosystem, trimmedTopic, intentList),
+      learning_intents: generationIntents,
+      interests: generationInterests,
+      learner_goal: buildLearnerGoal(selectedEcosystem, trimmedTopic, generationIntents),
       background: profile,
       pace,
     };
@@ -488,8 +492,8 @@ export function VibeQuestApp({
         topic: trimmedTopic,
         profile,
         pace,
-        intents: intentList,
-        interests: selectedEcosystem.interests,
+        intents: generationIntents,
+        interests: generationInterests,
         learnerGoal: request.learner_goal,
         module: moduleFromGeneratedLesson(first),
         generationStatus: "generating",
@@ -867,9 +871,7 @@ export function VibeQuestApp({
           activeLessonIndex={activeLessonIndex}
           answers={answers}
           onLearn={() => navigateToTab("learn")}
-          onQuest={() => navigateToTab("quest-run")}
           onWorkbench={() => navigateToTab("workbench")}
-          onShip={() => navigateToTab("ship-gate")}
           onOpenCourse={openCourse}
         />
       ) : null}
@@ -897,6 +899,8 @@ export function VibeQuestApp({
           intentText={intentText}
           setIntentText={setIntentText}
           intentList={intentList}
+          codeSnippetsEnabled={codeSnippetsEnabled}
+          setCodeSnippetsEnabled={setCodeSnippetsEnabled}
           generationState={generationState}
           generationError={generationError}
           onGenerate={startGeneration}
@@ -914,23 +918,10 @@ export function VibeQuestApp({
           onAskTutor={askTutor}
           syncState={syncState}
           syncWarning={syncWarning}
+          questError={questError}
           onStartQuest={() => void startLessonQuest()}
           questGenerationState={questGenerationState}
           activeLessonPassed={activeLessonPassed}
-        />
-      ) : null}
-      {activeTab === "quest-run" ? (
-        <QuestRunView
-          account={account}
-          moduleState={moduleState}
-          activeLessonIndex={activeLessonIndex}
-          answers={answers}
-          questState={questState}
-          questError={questError}
-          questGenerationState={questGenerationState}
-          onGenerateQuest={() => void startLessonQuest()}
-          onOpenLearn={() => navigateToTab("learn")}
-          onOpenWorkbench={() => navigateToTab("workbench")}
         />
       ) : null}
       {activeTab === "workbench" ? (
@@ -938,14 +929,13 @@ export function VibeQuestApp({
           moduleState={moduleState}
           questState={questState}
           setQuestState={setQuestState}
-          onOpenQuestRun={() => navigateToTab("quest-run")}
+          onOpenLearn={() => navigateToTab("learn")}
           onVerifyWorkspace={verifyWorkspace}
           onSubmitRunner={() => void submitSelectedFileToRunner()}
           onRefreshRunner={() => void refreshRunnerSubmission()}
           runnerSubmitting={runnerSubmitting}
         />
       ) : null}
-      {activeTab === "ship-gate" ? <ShipGateView questState={questState} moduleState={moduleState} onOpenWorkbench={() => navigateToTab("workbench")} /> : null}
     </div>
   );
 }
@@ -962,7 +952,7 @@ function ProtectedLoginView({ authConfigured }: { authConfigured: boolean }) {
         <p className="mt-6 font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Protected learning workspace</p>
         <h1 className="mt-3 text-3xl font-black tracking-[-0.045em] text-white sm:text-4xl">Sign in with Google to continue</h1>
         <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-white/58">
-          Dashboard, Learn, Quest Run, Workbench, and Ship Gate are private learner surfaces. After login, VibeQuest returns you to <span className="text-electric-blue">{path}</span>.
+          Dashboard, Learn, and Workbench are private learner surfaces. After login, VibeQuest returns you to <span className="text-electric-blue">{path}</span>.
         </p>
         <div className="mt-7 flex justify-center">
           <AccountControl account={null} authConfigured={authConfigured} />
@@ -1308,9 +1298,7 @@ function DashboardView({
   activeLessonIndex,
   answers,
   onLearn,
-  onQuest,
   onWorkbench,
-  onShip,
   onOpenCourse,
 }: {
   account: AccountSummary | null;
@@ -1324,9 +1312,7 @@ function DashboardView({
   activeLessonIndex: number;
   answers: Record<string, number>;
   onLearn: () => void;
-  onQuest: () => void;
   onWorkbench: () => void;
-  onShip: () => void;
   onOpenCourse: (course: LearningSessionRecord) => void;
 }) {
   const lessonCount = moduleState?.module.lessons.length ?? 0;
@@ -1350,10 +1336,8 @@ function DashboardView({
       : !activeLessonPassed
         ? { label: "Continue Learning", detail: "Resume the active lesson and pass its checkpoint.", action: onLearn }
         : !questState
-          ? { label: "Open Quest Run", detail: "Convert the passed lesson into an implementation quest.", action: onQuest }
-          : !questState.workspaceVerified
-            ? { label: "Open Workbench", detail: "Inspect generated files and run workspace checks.", action: onWorkbench }
-            : { label: "Review Ship Gate", detail: "Review runner evidence and ship-readiness state.", action: onShip };
+          ? { label: "Open Learn", detail: "Generate the implementation quest from the passed lesson.", action: onLearn }
+          : { label: "Open Workbench", detail: "Inspect generated files, checks, and runner evidence.", action: onWorkbench };
 
   const tracks = ECOSYSTEMS.map((ecosystem) => {
     const ecosystemCourses = courseLibrary.filter((course) => asEcosystemId(course.ecosystem_id) === ecosystem.id);
@@ -1602,7 +1586,7 @@ function DashboardView({
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3 font-mono text-xs font-black uppercase tracking-[0.14em] text-warning-amber">
                   <Zap className="h-4 w-4 fill-warning-amber" aria-hidden="true" />
-                  Active Quest
+                  Active Workbench
                 </div>
                 {questState ? (
                   <span className="rounded-full border border-warning-amber/40 bg-warning-amber/10 px-4 py-1.5 font-mono text-xs font-black text-warning-amber">
@@ -1623,7 +1607,7 @@ function DashboardView({
                     onClick={onWorkbench}
                     className="mt-7 h-12 w-full rounded-lg border border-white/[0.08] bg-[#071210] text-base font-black text-white transition hover:border-electric-blue/40 hover:text-electric-blue"
                   >
-                    Open Quest Run
+                    Open Workbench
                   </button>
                 </>
               ) : (
@@ -1632,10 +1616,10 @@ function DashboardView({
                   <p className="mt-3 text-sm leading-6 text-white/55">Pass a lesson checkpoint, then generate the implementation quest.</p>
                   <button
                     type="button"
-                    onClick={onQuest}
+                    onClick={onLearn}
                     className="mt-5 h-11 rounded-lg bg-electric-blue px-6 text-sm font-black text-black transition hover:brightness-110"
                   >
-                    Open Quest Run
+                    Open Learn
                   </button>
                 </div>
               )}
@@ -1787,6 +1771,8 @@ function LearnView(props: {
   intentText: string;
   setIntentText: (value: string) => void;
   intentList: string[];
+  codeSnippetsEnabled: boolean;
+  setCodeSnippetsEnabled: (enabled: boolean) => void;
   courseLibrary: LearningSessionRecord[];
   libraryState: SyncState;
   onOpenCourse: (course: LearningSessionRecord) => void;
@@ -1807,6 +1793,7 @@ function LearnView(props: {
   onAskTutor: (questionOverride?: string) => Promise<void>;
   syncState: SyncState;
   syncWarning: string | null;
+  questError: string | null;
   onStartQuest: () => void;
   questGenerationState: "idle" | "loading";
   activeLessonPassed: boolean;
@@ -1836,6 +1823,7 @@ function LearnView(props: {
         tutorError={props.tutorError}
         onAskTutor={props.onAskTutor}
         onStartQuest={props.onStartQuest}
+        questError={props.questError}
         questGenerationState={props.questGenerationState}
         activeLessonPassed={props.activeLessonPassed}
         onBackToSelect={props.onBackToSelect}
@@ -1857,6 +1845,8 @@ function LearnView(props: {
       pace={props.pace}
       setPace={props.setPace}
       intentList={props.intentList}
+      codeSnippetsEnabled={props.codeSnippetsEnabled}
+      setCodeSnippetsEnabled={props.setCodeSnippetsEnabled}
       setIntentText={props.setIntentText}
       courseLibrary={props.courseLibrary}
       libraryState={props.libraryState}
@@ -1881,6 +1871,8 @@ function LearningSelectView({
   pace,
   setPace,
   intentList,
+  codeSnippetsEnabled,
+  setCodeSnippetsEnabled,
   setIntentText,
   courseLibrary,
   libraryState,
@@ -1901,6 +1893,8 @@ function LearningSelectView({
   pace: string;
   setPace: (pace: string) => void;
   intentList: string[];
+  codeSnippetsEnabled: boolean;
+  setCodeSnippetsEnabled: (enabled: boolean) => void;
   setIntentText: (value: string) => void;
   courseLibrary: LearningSessionRecord[];
   libraryState: SyncState;
@@ -2013,6 +2007,8 @@ function LearningSelectView({
           setPace={setPace}
           intentList={intentList}
           toggleIntent={toggleIntent}
+          codeSnippetsEnabled={codeSnippetsEnabled}
+          setCodeSnippetsEnabled={setCodeSnippetsEnabled}
           generationError={generationError}
           syncWarning={syncWarning}
           onGenerate={onGenerate}
@@ -2035,6 +2031,8 @@ function SessionConfigModal({
   setPace,
   intentList,
   toggleIntent,
+  codeSnippetsEnabled,
+  setCodeSnippetsEnabled,
   generationError,
   syncWarning,
   onGenerate,
@@ -2051,6 +2049,8 @@ function SessionConfigModal({
   setPace: (pace: string) => void;
   intentList: string[];
   toggleIntent: (intent: string) => void;
+  codeSnippetsEnabled: boolean;
+  setCodeSnippetsEnabled: (enabled: boolean) => void;
   generationError: string | null;
   syncWarning: string | null;
   onGenerate: () => Promise<void>;
@@ -2167,6 +2167,24 @@ function SessionConfigModal({
             </div>
           </div>
 
+          <div className="mt-8 rounded-xl border border-electric-blue/20 bg-electric-blue/[0.035] p-4">
+            <button
+              type="button"
+              onClick={() => setCodeSnippetsEnabled(!codeSnippetsEnabled)}
+              className="flex w-full items-start gap-4 text-left"
+            >
+              <span className={codeSnippetsEnabled ? "mt-1 flex h-5 w-5 items-center justify-center rounded-md bg-electric-blue text-black" : "mt-1 flex h-5 w-5 items-center justify-center rounded-md border border-white/20 bg-[#020b0a]"}>
+                {codeSnippetsEnabled ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> : null}
+              </span>
+              <span>
+                <span className="block text-sm font-black text-white">Include interactive code samples</span>
+                <span className="mt-1 block text-sm leading-6 text-white/50">
+                  Core will generate lessons with short TypeScript or Rust snippets, and the lesson page will show an editable code sample lab with copy and tutor actions.
+                </span>
+              </span>
+            </button>
+          </div>
+
           {!account ? <Notice tone="amber" text="Google sign-in is required before Core can generate and bind learning state." /> : null}
           {!authConfigured ? <Notice tone="red" text="Google authentication configuration is incomplete in the running web process." /> : null}
           {generationError ? <Notice tone="red" text={generationError} /> : null}
@@ -2227,6 +2245,7 @@ function GeneratedModuleView({
   tutorError,
   onAskTutor,
   onStartQuest,
+  questError,
   questGenerationState,
   activeLessonPassed,
   onBackToSelect,
@@ -2245,6 +2264,7 @@ function GeneratedModuleView({
   tutorError: string | null;
   onAskTutor: (questionOverride?: string) => Promise<void>;
   onStartQuest: () => void;
+  questError: string | null;
   questGenerationState: "idle" | "loading";
   activeLessonPassed: boolean;
   onBackToSelect: () => void;
@@ -2440,15 +2460,14 @@ function GeneratedModuleView({
             ) : null}
 
             {shouldShowCodeLens(lessonContent.codeLens) ? (
-              <div className="mt-8 overflow-hidden rounded-md border border-white/[0.075] bg-[#020b0a]">
-                <div className="flex h-8 items-center gap-2 border-b border-white/[0.06] bg-white/[0.035] px-3">
-                  <ChevronRight className="h-5 w-5 text-electric-blue" aria-hidden="true" />
-                  <span className="font-mono text-[11px] font-black uppercase tracking-[0.16em] text-white/40">Code lens</span>
-                </div>
-                <pre className="overflow-auto p-5 font-mono text-[13px] leading-6 text-white/78 scrollbar-none">
-                  <code>{lessonContent.codeLens}</code>
-                </pre>
-              </div>
+              <CodeSampleLab
+                lessonId={activeLesson.id}
+                code={lessonContent.codeLens}
+                onAskTutor={(question) => {
+                  setTutorPanelOpen(true);
+                  void onAskTutor(question);
+                }}
+              />
             ) : null}
           </article>
 
@@ -2526,6 +2545,8 @@ function GeneratedModuleView({
             </button>
           </section>
 
+          {questError ? <Notice tone="red" text={questError} /> : null}
+
           <LessonBottomNavigation
             previousLesson={previousLesson}
             nextLesson={nextLesson}
@@ -2566,6 +2587,63 @@ function GeneratedModuleView({
   );
 }
 
+
+function CodeSampleLab({
+  lessonId,
+  code,
+  onAskTutor,
+}: {
+  lessonId: string;
+  code: string;
+  onAskTutor: (question: string) => void;
+}) {
+  const [draft, setDraft] = useState(code);
+
+  useEffect(() => {
+    setDraft(code);
+  }, [code, lessonId]);
+
+  function copyCode() {
+    void navigator.clipboard?.writeText(draft);
+  }
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-2xl border border-electric-blue/25 bg-[#020b0a]">
+      <div className="flex flex-col gap-3 border-b border-white/[0.06] bg-white/[0.035] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Code2 className="h-4 w-4 text-electric-blue" aria-hidden="true" />
+          <span className="font-mono text-[11px] font-black uppercase tracking-[0.16em] text-white/45">Interactive code sample</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={copyCode} className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.08] px-3 text-xs font-black text-white/65 transition hover:border-electric-blue/35 hover:text-electric-blue">
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            Copy
+          </button>
+          <button type="button" onClick={() => setDraft(code)} className="h-9 rounded-lg border border-white/[0.08] px-3 text-xs font-black text-white/65 transition hover:border-electric-blue/35 hover:text-electric-blue">
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={() => onAskTutor(`Walk me through this code sample line by line, explain the trust boundary, and suggest one safe edit I can try:\n\n${draft}`)}
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-electric-blue px-3 text-xs font-black text-black transition hover:brightness-110"
+          >
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+            Ask Tutor
+          </button>
+        </div>
+      </div>
+      <textarea
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        spellCheck={false}
+        className="min-h-[220px] w-full resize-y bg-[#020b0a] p-5 font-mono text-[13px] leading-6 text-white/78 outline-none scrollbar-none"
+      />
+      <p className="border-t border-white/[0.06] px-4 py-3 text-xs leading-5 text-white/42">
+        Edit locally to test your mental model. This is a learning scratchpad; changes are not submitted until you generate a workbench quest.
+      </p>
+    </section>
+  );
+}
 
 function LessonBottomNavigation({
   previousLesson,
@@ -2857,94 +2935,11 @@ function accountSummaryFromSession(session: { user?: { id?: string | null; name?
   };
 }
 
-function QuestRunView({
-  account,
-  moduleState,
-  activeLessonIndex,
-  answers,
-  questState,
-  questError,
-  questGenerationState,
-  onGenerateQuest,
-  onOpenLearn,
-  onOpenWorkbench,
-}: {
-  account: AccountSummary | null;
-  moduleState: ModuleState | null;
-  activeLessonIndex: number;
-  answers: Record<string, number>;
-  questState: QuestState | null;
-  questError: string | null;
-  questGenerationState: "idle" | "loading";
-  onGenerateQuest: () => void;
-  onOpenLearn: () => void;
-  onOpenWorkbench: () => void;
-}) {
-  const lesson = moduleState?.module.lessons[activeLessonIndex] ?? null;
-  const passed = Boolean(lesson && answers[lesson.id] === lesson.checkpoint.correct_index);
-  const canGenerate = Boolean(account && moduleState && lesson && passed && questGenerationState !== "loading");
-
-  return (
-    <main className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-6xl flex-col gap-7 p-4 md:p-8">
-      <div className="border-b border-glass-border pb-6">
-        <h1 className="flex items-center gap-3 text-3xl font-extrabold tracking-tight text-white">
-          <Cpu className="h-8 w-8 text-electric-blue" />
-          Code Quest
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
-          Turn a passed generated lesson into implementation files, denial tests, a code explainer, and a boss challenge tied to the checkpoint.
-        </p>
-      </div>
-
-      <section className="rounded-xl border border-electric-blue/35 bg-electric-blue/10 p-5">
-        {moduleState && lesson ? (
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-electric-blue">
-                <BookOpen className="h-5 w-5" />
-                <span className="font-mono text-xs font-bold uppercase tracking-wider">{moduleState.ecosystem.label} lesson quest</span>
-              </div>
-              <h2 className="mt-2 text-xl font-black text-white">{lesson.title}</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-on-surface-variant">{lesson.quest_bridge}</p>
-            </div>
-            <button
-              type="button"
-              onClick={onGenerateQuest}
-              disabled={!canGenerate}
-              className="flex min-w-[240px] items-center justify-center gap-2 rounded-xl bg-cyber-green px-5 py-3 text-sm font-extrabold uppercase tracking-wider text-black transition-all hover:brightness-110 disabled:brightness-50"
-            >
-              {questGenerationState === "loading" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              {questGenerationState === "loading" ? "Generating" : passed ? "Generate Lesson Quest" : "Pass Checkpoint First"}
-            </button>
-          </div>
-        ) : (
-          <ActionEmpty text="Generate a lesson module first, then pass a checkpoint." action="Open Learn" onClick={onOpenLearn} />
-        )}
-      </section>
-
-      {questError ? <Notice tone="red" text={questError} /> : null}
-
-      {questState ? (
-        <Panel title="Generated quest" icon={<Terminal className="h-5 w-5 text-cyber-green" />} action="Open Workbench" onAction={onOpenWorkbench}>
-          <p className="font-mono text-[10px] uppercase tracking-wider text-on-surface-variant">{questState.response.learning_context.lesson_title}</p>
-          <h3 className="mt-2 text-xl font-black text-white">{questState.response.quest.title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">{questState.response.quest.premise}</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <MiniStat label="Files" value={String(questState.response.quest.workbench_files.length)} />
-            <MiniStat label="Runner" value={runnerStateLabel(questState)} />
-            <MiniStat label="Save" value={questState.response.persistence.saved ? "Saved" : "Local"} />
-          </div>
-        </Panel>
-      ) : null}
-    </main>
-  );
-}
-
 function WorkbenchView({
   moduleState,
   questState,
   setQuestState,
-  onOpenQuestRun,
+  onOpenLearn,
   onVerifyWorkspace,
   onSubmitRunner,
   onRefreshRunner,
@@ -2953,7 +2948,7 @@ function WorkbenchView({
   moduleState: ModuleState | null;
   questState: QuestState | null;
   setQuestState: (state: QuestState) => void;
-  onOpenQuestRun: () => void;
+  onOpenLearn: () => void;
   onVerifyWorkspace: () => void;
   onSubmitRunner: () => void;
   onRefreshRunner: () => void;
@@ -2968,8 +2963,8 @@ function WorkbenchView({
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
             Generate a lesson quest first. The Workbench opens only when Core returns real quest files.
           </p>
-          <button type="button" onClick={onOpenQuestRun} className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-electric-blue px-5 text-sm font-black uppercase tracking-wider text-black transition-all hover:brightness-110">
-            Open Quest Run
+          <button type="button" onClick={onOpenLearn} className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-electric-blue px-5 text-sm font-black uppercase tracking-wider text-black transition-all hover:brightness-110">
+            Open Learn
             <ArrowRight className="h-4 w-4" />
           </button>
         </section>
@@ -3082,50 +3077,6 @@ function WorkbenchView({
   );
 }
 
-function ShipGateView({ questState, moduleState, onOpenWorkbench }: { questState: QuestState | null; moduleState: ModuleState | null; onOpenWorkbench: () => void }) {
-  const runnerPassed = questState?.runnerSubmission?.state === "passed";
-  const runnerEnabled = Boolean(questState?.response.runner.enabled);
-  const canClaim = Boolean(questState && questState.workspaceVerified && (!runnerEnabled || runnerPassed));
-  return (
-    <main className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-7xl flex-col gap-8 p-4 md:p-8">
-      <div className="border-b border-glass-border pb-6">
-        <h1 className="flex items-center gap-3 text-3xl font-extrabold tracking-tight text-white">
-          <Ship className="h-8 w-8 text-electric-blue" />
-          Ship Gate
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-on-surface-variant">
-          Review the generated quest evidence. Reward and grant evidence flows stay locked until real verification state exists.
-        </p>
-      </div>
-
-      <section className="grid grid-cols-1 gap-6 md:grid-cols-4">
-        <StatusCard label="Ecosystem" value={moduleState?.ecosystem.label ?? "None"} detail="Selected learning track" />
-        <StatusCard label="Quest" value={questState ? "Generated" : "Empty"} detail="Core-authored implementation challenge" />
-        <StatusCard label="Workspace" value={questState?.workspaceVerified ? "Checked" : "Open"} detail="Local proof/test/denial scan" />
-        <StatusCard label="Runner" value={runnerEnabled ? (runnerPassed ? "Passed" : "Enabled") : "Disabled"} detail="Reviewed Zcash runner API" />
-      </section>
-
-      <section className="rounded-2xl border border-glass-border bg-[#11161D] p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-cyber-green">Evidence decision</p>
-            <h2 className="mt-2 text-2xl font-black text-white">{canClaim ? "Evidence is reviewable" : "Evidence is not complete"}</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-on-surface-variant">
-              {canClaim
-                ? "The generated quest has concrete workspace evidence. If the reviewed runner is enabled, a passed runner receipt is required before this becomes claim evidence."
-                : "Generate a quest, inspect the files, run workspace checks, and use runner evidence only when Core exposes the reviewed Zcash runner."}
-            </p>
-          </div>
-          <button type="button" onClick={onOpenWorkbench} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-electric-blue px-5 text-sm font-black uppercase tracking-wider text-black transition-all hover:brightness-110">
-            Open Workbench
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
-      </section>
-    </main>
-  );
-}
-
 function Panel({ title, icon, action, onAction, children }: { title: string; icon: React.ReactNode; action?: string; onAction?: () => void; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-glass-border bg-[#15181F] p-5">
@@ -3154,32 +3105,9 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatusCard({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <div className="flex h-40 flex-col justify-between rounded-xl border border-glass-border bg-[#16181D] p-5">
-      <span className="font-mono text-[10px] font-bold uppercase text-on-surface-variant">{label}</span>
-      <div>
-        <span className="font-mono text-2xl font-black text-white md:text-3xl">{value}</span>
-        <span className="mt-1 block font-mono text-[10px] uppercase text-on-surface-variant">{detail}</span>
-      </div>
-    </div>
-  );
-}
-
 function Notice({ tone, text }: { tone: "amber" | "red"; text: string }) {
   const classes = tone === "amber" ? "border-warning-amber/30 bg-warning-amber/10 text-warning-amber" : "border-red-500/30 bg-red-500/10 text-red-300";
   return <div className={`mt-3 rounded-lg border p-3 text-xs leading-relaxed ${classes}`}>{text}</div>;
-}
-
-function ActionEmpty({ text, action, onClick }: { text: string; action: string; onClick: () => void }) {
-  return (
-    <div className="rounded-xl border border-dashed border-glass-border bg-[#0B0C0E] p-5 text-center">
-      <p className="text-sm leading-relaxed text-on-surface-variant">{text}</p>
-      <button type="button" onClick={onClick} className="mt-4 rounded-lg bg-electric-blue px-4 py-2 text-xs font-black uppercase tracking-wider text-black">
-        {action}
-      </button>
-    </div>
-  );
 }
 
 function ExplainerRow({ label, value }: { label: string; value: string }) {
@@ -3199,9 +3127,7 @@ function currentAppRoute(pathOverride?: string | null): { tab: TabId; courseId: 
 
   if (pathname === "/") return { tab: "landing", courseId: null, lessonId: null };
   if (parts[0] === "dashboard") return { tab: "dashboard", courseId: null, lessonId: null };
-  if (parts[0] === "quest-run") return { tab: "quest-run", courseId: null, lessonId: null };
   if (parts[0] === "workbench") return { tab: "workbench", courseId: null, lessonId: null };
-  if (parts[0] === "ship-gate") return { tab: "ship-gate", courseId: null, lessonId: null };
   if (parts[0] === "courses" && parts[1]) {
     const lessonMarker = parts.indexOf("lessons");
     return {

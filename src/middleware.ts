@@ -4,9 +4,7 @@ const APP_ROUTE_PREFIXES = [
   "/dashboard",
   "/learn",
   "/courses",
-  "/quest-run",
   "/workbench",
-  "/ship-gate",
 ];
 
 export function middleware(request: NextRequest) {
