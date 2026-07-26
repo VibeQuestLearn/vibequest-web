@@ -387,6 +387,13 @@ export function VibeQuestApp({
     if (!account || courseLibrary.length === 0) return;
 
     if (requestedCourseId) {
+      const requestedCourseIsActiveGeneration =
+        moduleState?.id === requestedCourseId || generationRunRef.current === requestedCourseId;
+      if (requestedCourseIsActiveGeneration) {
+        setLearnScreenMode("module");
+        return;
+      }
+
       const requested = courseLibrary.find((course) => course.module_id === requestedCourseId);
       if (requested) {
         applySessionRecord(requested, { openModule: true, lessonId: requestedLessonId });
@@ -416,10 +423,15 @@ export function VibeQuestApp({
     }
   }
 
-  function navigateToCourse(courseId: string, lessonId?: string | null) {
+  function navigateToCourse(courseId: string, lessonId?: string | null, options: { replace?: boolean } = {}) {
     const safeCourseId = encodeURIComponent(courseId);
     const lessonPath = lessonId ? `/lessons/${encodeURIComponent(lessonId)}` : "";
-    pushAppPath(`/courses/${safeCourseId}${lessonPath}`);
+    const coursePath = `/courses/${safeCourseId}${lessonPath}`;
+    if (options.replace) {
+      replaceAppPath(coursePath);
+    } else {
+      pushAppPath(coursePath);
+    }
     setActiveTab("learn");
     setRequestedCourseId(courseId);
     setRequestedLessonId(lessonId ?? null);
@@ -507,7 +519,11 @@ export function VibeQuestApp({
     setAnswers({});
     setActiveLessonIndex(0);
     setLearnScreenMode("module");
-    navigateToTab("learn");
+    pushAppPath("/learn");
+    setActiveTab("learn");
+    setRequestedCourseId(null);
+    setRequestedLessonId(null);
+    scrollLearningViewToTop();
 
     const generationIntents = codeSnippetsEnabled ? [...intentList, CODE_SNIPPET_INTENT] : intentList;
     const generationInterests = codeSnippetsEnabled
@@ -548,7 +564,7 @@ export function VibeQuestApp({
       setModuleState(firstModuleState);
       setGenerationState("background");
       setLearnScreenMode("module");
-      navigateToCourse(firstModuleState.id, first.lesson.id);
+      navigateToCourse(firstModuleState.id, first.lesson.id, { replace: true });
       await persistLearningState(firstModuleState, {}, 0, []);
       void continueProgressiveGeneration(runId, firstModuleState, request, 1);
     } catch (error) {
