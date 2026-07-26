@@ -19,10 +19,17 @@ export type ZcashRegistration = {
   custody_mode: string;
 };
 
-export type EcosystemConfiguration = {
-  kind: "zcash";
-  configuration: ZcashRegistration;
+export type GenericEcosystemConfiguration = {
+  kind: "basics" | "ckb" | "fiber" | "stacks";
+  configuration: Record<string, unknown>;
 };
+
+export type EcosystemConfiguration =
+  | {
+      kind: "zcash";
+      configuration: ZcashRegistration;
+    }
+  | GenericEcosystemConfiguration;
 
 export type TrackRegistration = {
   track_id: string;
@@ -303,12 +310,12 @@ function parseEcosystem(value: unknown): EcosystemRegistration {
   if (!isRecord(value) || !Array.isArray(value.tracks)) {
     throw new Error("Core returned an invalid ecosystem registration.");
   }
-  if (!isRecord(value.configuration) || value.configuration.kind !== "zcash") {
+  if (!isRecord(value.configuration) || typeof value.configuration.kind !== "string") {
     throw new Error("Core returned an unsupported ecosystem configuration.");
   }
   const configuration = value.configuration.configuration;
   if (!isRecord(configuration)) {
-    throw new Error("Core returned invalid Zcash registration data.");
+    throw new Error("Core returned invalid ecosystem registration data.");
   }
 
   return {
@@ -316,15 +323,21 @@ function parseEcosystem(value: unknown): EcosystemRegistration {
     name: readString(value, "name"),
     summary: readString(value, "summary"),
     enabled: readBoolean(value, "enabled"),
-    configuration: {
-      kind: "zcash",
-      configuration: {
-        network: readString(configuration, "network"),
-        address_standard: readString(configuration, "address_standard"),
-        payment_request_standard: readString(configuration, "payment_request_standard"),
-        custody_mode: readString(configuration, "custody_mode"),
-      },
-    },
+    configuration:
+      value.configuration.kind === "zcash"
+        ? {
+            kind: "zcash",
+            configuration: {
+              network: readString(configuration, "network"),
+              address_standard: readString(configuration, "address_standard"),
+              payment_request_standard: readString(configuration, "payment_request_standard"),
+              custody_mode: readString(configuration, "custody_mode"),
+            },
+          }
+        : {
+            kind: value.configuration.kind as GenericEcosystemConfiguration["kind"],
+            configuration,
+          },
     tracks: value.tracks.map(parseTrack),
   };
 }
