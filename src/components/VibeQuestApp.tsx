@@ -180,6 +180,24 @@ const ECOSYSTEMS: EcosystemOption[] = [
       "Shielded wallet sync and confirmations: scanning, note commitment trees, reorg safety, and UX tradeoffs",
     ],
   },
+  {
+    id: "stacks",
+    label: "Stacks",
+    pathId: "stacks-bitcoin-apps",
+    accent: "text-electric-blue border-electric-blue/40 bg-electric-blue/10",
+    detail: "Bitcoin-secured apps, Clarity contracts, sBTC, BNS, wallet authorization, and safe product flows.",
+    defaultTopic: "Stacks and Bitcoin app fundamentals with Clarity, sBTC, BNS, and safe authorization",
+    interests: ["Stacks and Bitcoin", "Clarity Smart Contracts", "sBTC Basics", "BNS Product Identity", "Wallet Authorization"],
+    questLabel: "Stacks Clarity learning quest",
+    suggestedTopics: [
+      "Stacks and Bitcoin mental model: blocks, settlement assumptions, Proof of Transfer, and application scope",
+      "Clarity smart contract basics: principals, public functions, maps, asserts, and predictable execution",
+      "Wallets, transactions, post-conditions, signatures, and what a frontend must not claim as proof",
+      "sBTC basics: Bitcoin-backed app flows, custody assumptions, deposits, withdrawals, and user trust boundaries",
+      "BNS and product identity: names, ownership, app UX, and safe resolution assumptions",
+      "Safe Stacks app flow: user authorization, transaction status, explorer evidence, and denial tests",
+    ],
+  },
 ];
 
 const PROFILES = ["Vibecoder", "Backend dev", "Frontend dev", "Security auditor", "Product / community"];
@@ -1110,6 +1128,13 @@ function LandingView({
       meta: "Zcash active",
       tone: "text-electric-blue",
     },
+    {
+      icon: <Code2 className="h-5 w-5" aria-hidden="true" />,
+      title: "Stacks",
+      copy: "Learn Bitcoin-secured app flows, Clarity contract basics, sBTC, BNS identity, and wallet authorization boundaries.",
+      meta: "Stacks added",
+      tone: "text-electric-blue",
+    },
   ];
 
   return (
@@ -1228,7 +1253,7 @@ function LandingView({
             </p>
           </div>
 
-          <div className="mt-14 grid gap-8 md:grid-cols-3">
+          <div className="mt-14 grid gap-8 md:grid-cols-2 xl:grid-cols-4">
             {architectureCards.map((card) => (
               <article key={card.title} className="group border border-white/[0.055] bg-[#040b0b]/82 p-8 shadow-[0_24px_70px_rgba(0,0,0,0.28)] transition hover:-translate-y-1 hover:border-electric-blue/30 hover:bg-[#061111]">
                 <div className="mb-7 flex h-12 w-12 items-center justify-center rounded-md bg-electric-blue/10 text-electric-blue shadow-[0_0_24px_rgba(0,240,255,0.12)]">
@@ -1291,7 +1316,7 @@ function LandingView({
 
         <section id="quests" className="border-b border-white/[0.06] bg-[#050c0c] px-5 py-10 sm:px-8">
           <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-0 text-center md:grid-cols-4">
-            <LandingStat value="3" label="Protocol targets" />
+            <LandingStat value="4" label="Protocol targets" />
             <LandingStat value="5" label="AI lessons/module" />
             <LandingStat value="1" label="Reviewed Zcash runner" />
             <LandingStat value="0" label="Fake placeholders" />
@@ -1446,7 +1471,7 @@ function DashboardView({
     : latestCourse && !moduleState
       ? { label: "Resume Course", detail: "Open the most recently active saved course.", action: () => onOpenCourse(latestCourse) }
     : !moduleState
-      ? { label: "Continue Learning", detail: "Choose Basics, CKB, Fiber, or Zcash and let Core generate the first module.", action: onLearn }
+      ? { label: "Continue Learning", detail: "Choose Basics, CKB, Fiber, Zcash, or Stacks and let Core generate the first module.", action: onLearn }
       : !activeLessonPassed
         ? { label: "Continue Learning", detail: "Resume the active lesson and pass its checkpoint.", action: onLearn }
         : !questState
@@ -1525,7 +1550,7 @@ function DashboardView({
               Learn it, inspect it, <span className="text-electric-blue">then ship it.</span>
             </h1>
             <p className="mt-6 text-xl leading-8 text-white/58">
-              Web3 + Blockchain, CKB, Fiber, and Zcash. One AI learning system.
+              Web3 + Blockchain, CKB, Fiber, Zcash, and Stacks. One AI learning system.
             </p>
           </div>
           <button
@@ -2560,6 +2585,7 @@ function GeneratedModuleView({
             <h1 className="text-3xl font-black leading-tight tracking-[-0.045em] text-white md:text-[36px]">
               {activeLesson.title}
             </h1>
+            <LessonValidationBadge lesson={activeLesson} />
             {moduleState.generationStatus === "generating" ? (
               <div className="mt-5 rounded-xl border border-electric-blue/25 bg-electric-blue/[0.045] p-4 text-sm leading-6 text-electric-blue">
                 Module 1 is ready. {pendingLessonCount > 0 ? `${pendingLessonCount} more module${pendingLessonCount === 1 ? "" : "s"} are still being generated and will appear in the pathway.` : "Final save is completing."}
@@ -2741,6 +2767,23 @@ function GeneratedModuleView({
   );
 }
 
+
+function LessonValidationBadge({ lesson }: { lesson: LearningLessonDto }) {
+  const quality = lesson.quality_score;
+  const evidenceCount = lesson.evidence_map?.length ?? 0;
+  const passed = quality?.passed ?? evidenceCount > 0;
+
+  return (
+    <div className={passed ? "mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-cyber-green/25 bg-cyber-green/[0.045] p-4 text-sm text-cyber-green" : "mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-4 text-sm text-warning-amber"}>
+      <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+      <span className="font-black">{passed ? "Validated lesson" : "Validation needs review"}</span>
+      <span className="text-white/52">
+        {evidenceCount} source-pack evidence link{evidenceCount === 1 ? "" : "s"}
+        {quality ? ` · depth ${quality.technical_depth}% · checkpoint ${quality.checkpoint_quality}%` : ""}
+      </span>
+    </div>
+  );
+}
 
 function CodeSampleLab({
   lessonId,

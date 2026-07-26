@@ -42,7 +42,7 @@ export function LearningShell({
   const track = ecosystem?.tracks.find(
     (entry) => entry.track_id === SHIELDED_PAYMENTS_TRACK_ID,
   );
-  const zcash = ecosystem?.configuration.configuration;
+  const zcash = ecosystem?.configuration.kind === "zcash" ? ecosystem.configuration.configuration : null;
 
   return (
     <div className="min-h-screen bg-[#f5f6f7] text-[#17191d]">

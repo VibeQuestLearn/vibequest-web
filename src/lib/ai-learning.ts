@@ -1,4 +1,4 @@
-export type EcosystemId = "basics" | "ckb" | "fiber" | "zcash";
+export type EcosystemId = "basics" | "ckb" | "fiber" | "zcash" | "stacks";
 export type QuestSource = "open-ai";
 
 export type PersistenceStatus = {
@@ -10,6 +10,23 @@ export type LearningResourceDto = {
   title: string;
   url: string;
   reason: string;
+};
+
+export type LearningEvidenceDto = {
+  claim: string;
+  source_title: string;
+  source_url: string;
+  lesson_section: string;
+  confidence: string;
+};
+
+export type LearningQualityScoreDto = {
+  source_coverage: number;
+  technical_depth: number;
+  checkpoint_quality: number;
+  placeholder_free: boolean;
+  ecosystem_alignment: boolean;
+  passed: boolean;
 };
 
 export type LearningOptionDto = {
@@ -40,6 +57,8 @@ export type LearningLessonDto = {
   concepts: string[];
   submodules?: LearningSubmoduleDto[];
   resources?: LearningResourceDto[];
+  evidence_map?: LearningEvidenceDto[];
+  quality_score?: LearningQualityScoreDto;
   checkpoint: LearningCheckpointDto;
   quest_bridge: string;
 };
