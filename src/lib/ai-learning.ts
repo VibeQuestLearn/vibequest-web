@@ -92,8 +92,16 @@ export type GenerateLearningModuleResponse = {
   persistence: PersistenceStatus;
 };
 
+export type PriorLearningLessonRequest = {
+  title: string;
+  checkpoint_question: string;
+  summary: string;
+  code_lens: string;
+};
+
 export type GenerateLearningLessonRequest = GenerateLearningModuleRequest & {
   lesson_index: number;
+  prior_lessons?: PriorLearningLessonRequest[];
 };
 
 export type GenerateLearningLessonResponse = {

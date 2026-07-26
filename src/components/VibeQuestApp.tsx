@@ -585,7 +585,11 @@ export function VibeQuestApp({
     let currentState = initialState;
     try {
       for (let lessonIndex = startIndex; lessonIndex < TOTAL_LEARNING_MODULES; lessonIndex += 1) {
-        const response = await generateLearningLesson({ ...request, lesson_index: lessonIndex });
+        const response = await generateLearningLesson({
+          ...request,
+          lesson_index: lessonIndex,
+          prior_lessons: priorLearningLessonsForRequest(currentState.module.lessons),
+        });
         if (generationRunRef.current !== runId) return;
         currentState = appendGeneratedLesson(currentState, response.lesson, response.warning);
         setModuleState((existing) => (existing?.id === runId ? currentState : existing));
@@ -3383,6 +3387,22 @@ function createCourseId(): string {
     return `course-${crypto.randomUUID()}`;
   }
   return `course-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function priorLearningLessonsForRequest(lessons: LearningLessonDto[]) {
+  return lessons.slice(0, 4).map((lesson) => ({
+    title: lesson.title,
+    checkpoint_question: lesson.checkpoint.question,
+    summary: lesson.explanation.slice(0, 1600),
+    code_lens: lessonCodeLens(lesson.explanation).slice(0, 700),
+  }));
+}
+
+function lessonCodeLens(explanation: string) {
+  const marker = "Code lens:";
+  const markerIndex = explanation.indexOf(marker);
+  if (markerIndex < 0) return "";
+  return explanation.slice(markerIndex + marker.length).trim();
 }
 
 function moduleFromGeneratedLesson(response: Awaited<ReturnType<typeof generateLearningLesson>>): LearningModuleDto {
