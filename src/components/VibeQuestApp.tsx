@@ -32,6 +32,7 @@ import {
   AccountControl,
   type AccountSummary,
 } from "@/components/AccountControl";
+import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { VibeQuestBrand } from "@/components/VibeQuestBrand";
 import {
   archiveLearningSession,
@@ -1190,7 +1191,10 @@ export function VibeQuestApp({
             <button type="button" onClick={() => navigateToTab("landing")} className="flex min-w-0 items-center gap-3 text-left">
               <VibeQuestBrand />
             </button>
-            <AccountControl account={account} authConfigured={authConfigured} />
+            <div className="flex items-center justify-end gap-3">
+              <PwaInstallButton />
+              <AccountControl account={account} authConfigured={authConfigured} />
+            </div>
           </div>
         </header>
         <ProtectedLoginView authConfigured={authConfigured} />
@@ -1230,7 +1234,8 @@ export function VibeQuestApp({
               ))}
             </nav>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              <PwaInstallButton />
               <AccountControl account={account} authConfigured={authConfigured} showIdentity={activeTab === "dashboard"} />
             </div>
           </div>
@@ -1477,7 +1482,8 @@ function LandingView({
             <a className="transition hover:text-electric-blue" href="#quests">Quests</a>
           </nav>
 
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-2 sm:gap-3">
+            <PwaInstallButton />
             {account ? <AccountControl account={account} authConfigured={authConfigured} showIdentity /> : null}
             <button
               type="button"

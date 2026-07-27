@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -13,9 +13,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VibeQuestLearn | Multi-Ecosystem AI Learning Workbench",
+  title: "VibeQuest | Multi-Ecosystem AI Learning Workbench",
   description:
-    "AI-generated protocol learning for CKB, Fiber, Zcash, and future ecosystems.",
+    "Installable AI learning workbench for CKB, Fiber, Zcash, Stacks, and Web3 protocol fundamentals.",
+  applicationName: "VibeQuest",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/vibequest-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/vibequest-icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "VibeQuest",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#030d0b",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
