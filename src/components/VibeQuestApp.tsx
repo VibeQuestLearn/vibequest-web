@@ -36,17 +36,25 @@ import {
   archiveLearningSession,
   askAndSaveLearningTutor,
   deleteLearningSession,
+  exportLearningSession,
   generateLearningLesson,
   generateLearningQuest,
   getRunnerSubmission,
+  loadLearningAdminReview,
+  loadLearningMetrics,
   loadLearningSession,
   loadLearningSessions,
   saveLearningSession,
   submitRunnerSource,
+  trackLearningEvent,
   type EcosystemId,
   type GenerateLearningQuestResponse,
+  type LearningAdminReviewResponse,
   type LearningLessonDto,
+  type LearningMetricsResponse,
   type LearningModuleDto,
+  type LearningModuleGenerationStateDto,
+  type LearningSessionExportResponse,
   type LearningSessionRecord,
   type LearningTutorResponse,
   type QuestSource,
@@ -55,7 +63,7 @@ import {
   type WorkbenchFileDto,
 } from "@/lib/ai-learning";
 
-type TabId = "landing" | "dashboard" | "learn" | "workbench";
+type TabId = "landing" | "dashboard" | "learn" | "workbench" | "review";
 type SyncState = "idle" | "loading" | "saving" | "saved" | "local-only";
 type LearnScreenMode = "select" | "module";
 type GenerationState = "idle" | "loading" | "background";
@@ -99,8 +107,16 @@ type ModuleState = {
   interests: string[];
   learnerGoal: string;
   module: LearningModuleDto;
+  moduleStatuses: LearningModuleGenerationStateDto[];
   generationStatus: CourseGenerationStatus;
   totalLessons: number;
+};
+
+type ReviewState = {
+  status: SyncState;
+  data: LearningAdminReviewResponse | null;
+  exportData: LearningSessionExportResponse | null;
+  error: string | null;
 };
 
 type QuestState = {
@@ -259,6 +275,8 @@ export function VibeQuestApp({
   const [questState, setQuestState] = useState<QuestState | null>(null);
   const [questGenerationState, setQuestGenerationState] = useState<"idle" | "loading">("idle");
   const [questError, setQuestError] = useState<string | null>(null);
+  const [reviewState, setReviewState] = useState<ReviewState>({ status: "idle", data: null, exportData: null, error: null });
+  const [metricsState, setMetricsState] = useState<LearningMetricsResponse | null>(null);
   const [runnerSubmitting, setRunnerSubmitting] = useState(false);
   const generationRunRef = useRef<string | null>(null);
   const answersRef = useRef(answers);
@@ -388,6 +406,24 @@ export function VibeQuestApp({
   }, [account]);
 
   useEffect(() => {
+    if (!account) {
+      setMetricsState(null);
+      return;
+    }
+    void loadLearningMetrics()
+      .then(setMetricsState)
+      .catch(() => setMetricsState(null));
+  }, [account, courseLibrary.length]);
+
+  useEffect(() => {
+    if (!account || activeTab !== "review") return;
+    setReviewState((state) => ({ ...state, status: "loading", error: null }));
+    void loadLearningAdminReview()
+      .then((data) => setReviewState({ status: "saved", data, exportData: null, error: null }))
+      .catch((error) => setReviewState({ status: "local-only", data: null, exportData: null, error: error instanceof Error ? error.message : "Review data failed to load." }));
+  }, [account, activeTab]);
+
+  useEffect(() => {
     if (!account || courseLibrary.length === 0) return;
 
     if (requestedCourseId) {
@@ -416,6 +452,21 @@ export function VibeQuestApp({
     }
   }, [account, activeTab, courseLibrary, libraryState, moduleState, requestedCourseId, requestedLessonId]);
 
+  function logLearningEvent(
+    eventType: string,
+    payload: { moduleId?: string; lessonId?: string; ecosystemId?: string; courseTitle?: string; metadata?: Record<string, string> } = {},
+  ) {
+    if (!account) return;
+    void trackLearningEvent({
+      event_type: eventType,
+      module_id: payload.moduleId,
+      lesson_id: payload.lessonId,
+      ecosystem_id: payload.ecosystemId,
+      course_title: payload.courseTitle,
+      metadata: payload.metadata,
+    }).catch(() => null);
+  }
+
   function navigateToTab(tab: TabId) {
     const path = tabPath(tab);
     pushAppPath(path);
@@ -443,12 +494,34 @@ export function VibeQuestApp({
     scrollLearningViewToTop();
   }
 
+  function moduleStateFromRecord(record: LearningSessionRecord): ModuleState {
+    const ecosystem = ecosystemById(asEcosystemId(record.ecosystem_id) ?? "zcash");
+    const intents = record.learning_intents.length > 0 ? record.learning_intents : parseIntents(record.learner_goal);
+    return {
+      id: record.module_id,
+      source: record.source,
+      warning: null,
+      ecosystem,
+      topic: record.topic || ecosystem.defaultTopic,
+      profile: record.learning_profile || record.background || "Vibecoder",
+      pace: record.pace || "Focused",
+      intents,
+      interests: record.selected_interests,
+      learnerGoal: record.learner_goal,
+      module: record.module,
+      moduleStatuses: normalizeModuleStatuses(record.module, record.module_statuses, TOTAL_LEARNING_MODULES),
+      generationStatus: record.module.lessons.length >= TOTAL_LEARNING_MODULES ? "complete" : "ready",
+      totalLessons: TOTAL_LEARNING_MODULES,
+    };
+  }
+
   function applySessionRecord(
     record: LearningSessionRecord,
     options: { openModule?: boolean; lessonId?: string | null } = {},
   ) {
-    const ecosystem = ecosystemById(asEcosystemId(record.ecosystem_id) ?? "zcash");
-    const intents = record.learning_intents.length > 0 ? record.learning_intents : parseIntents(record.learner_goal);
+    const nextModuleState = moduleStateFromRecord(record);
+    const ecosystem = nextModuleState.ecosystem;
+    const intents = nextModuleState.intents;
     const requestedLessonIndex = options.lessonId
       ? record.module.lessons.findIndex((lesson) => lesson.id === options.lessonId)
       : -1;
@@ -462,21 +535,7 @@ export function VibeQuestApp({
     setPace(record.pace || "Focused");
     setIntentText(intents.filter((intent) => intent !== CODE_SNIPPET_INTENT).join("\n"));
     setCodeSnippetsEnabled(record.learning_intents.includes(CODE_SNIPPET_INTENT));
-    setModuleState({
-      id: record.module_id,
-      source: record.source,
-      warning: null,
-      ecosystem,
-      topic: record.topic || ecosystem.defaultTopic,
-      profile: record.learning_profile || record.background || "Vibecoder",
-      pace: record.pace || "Focused",
-      intents,
-      interests: record.selected_interests,
-      learnerGoal: record.learner_goal,
-      module: record.module,
-      generationStatus: record.module.lessons.length >= TOTAL_LEARNING_MODULES ? "complete" : "ready",
-      totalLessons: TOTAL_LEARNING_MODULES,
-    });
+    setModuleState(nextModuleState);
     if (options.openModule) {
       setLearnScreenMode("module");
     }
@@ -497,6 +556,7 @@ export function VibeQuestApp({
     setEcosystemId(next.id);
     setTopic(next.defaultTopic);
     setGenerationError(null);
+    logLearningEvent("ecosystem_selected", { ecosystemId: next.id, metadata: { label: next.label } });
   }
 
   async function startGeneration() {
@@ -549,6 +609,7 @@ export function VibeQuestApp({
       const first = await generateLearningLesson({ ...request, lesson_index: 0 });
       if (generationRunRef.current !== runId) return;
 
+      const firstModule = moduleFromGeneratedLesson(first);
       const firstModuleState: ModuleState = {
         id: runId,
         source: first.source,
@@ -560,7 +621,12 @@ export function VibeQuestApp({
         intents: generationIntents,
         interests: generationInterests,
         learnerGoal: request.learner_goal,
-        module: moduleFromGeneratedLesson(first),
+        module: firstModule,
+        moduleStatuses: setModuleStatus(
+          moduleStatusesForModule(firstModule, TOTAL_LEARNING_MODULES).map((status, index) => index > 0 ? { ...status, status: "generating", updated_at: new Date().toISOString() } : status),
+          first.lesson_index,
+          first.module_status,
+        ),
         generationStatus: "generating",
         totalLessons: TOTAL_LEARNING_MODULES,
       };
@@ -570,12 +636,20 @@ export function VibeQuestApp({
       setLearnScreenMode("module");
       navigateToCourse(firstModuleState.id, first.lesson.id, { replace: true });
       await persistLearningState(firstModuleState, {}, 0, []);
+      logLearningEvent("course_generated", {
+        moduleId: firstModuleState.id,
+        lessonId: first.lesson.id,
+        ecosystemId: firstModuleState.ecosystem.id,
+        courseTitle: firstModuleState.module.title,
+        metadata: { generated_modules: "1", total_modules: String(TOTAL_LEARNING_MODULES) },
+      });
       void continueProgressiveGeneration(runId, firstModuleState, request, 1);
     } catch (error) {
       if (generationRunRef.current === runId) {
         setLearnScreenMode("select");
         setGenerationError(error instanceof Error ? error.message : "Lesson generation failed.");
         setGenerationState("idle");
+        logLearningEvent("generation_failed", { ecosystemId: selectedEcosystem.id, metadata: { stage: "first_module" } });
       }
     }
   }
@@ -587,15 +661,23 @@ export function VibeQuestApp({
     startIndex: number,
   ) {
     let currentState = initialState;
-    try {
-      for (let lessonIndex = startIndex; lessonIndex < TOTAL_LEARNING_MODULES; lessonIndex += 1) {
+    for (let lessonIndex = startIndex; lessonIndex < TOTAL_LEARNING_MODULES; lessonIndex += 1) {
+      try {
+        const generatingState = {
+          ...currentState,
+          moduleStatuses: setModuleStatus(currentState.moduleStatuses, lessonIndex, queuedModuleStatus(lessonIndex, "generating")),
+        };
+        currentState = generatingState;
+        setModuleState((existing) => (existing?.id === runId ? generatingState : existing));
+        await persistLearningState(generatingState, answersRef.current, activeLessonIndexRef.current, tutorMessagesRef.current);
+
         const response = await generateLearningLesson({
           ...request,
           lesson_index: lessonIndex,
           prior_lessons: priorLearningLessonsForRequest(currentState.module.lessons),
         });
         if (generationRunRef.current !== runId) return;
-        currentState = appendGeneratedLesson(currentState, response.lesson, response.warning);
+        currentState = appendGeneratedLesson(currentState, response.lesson, response.warning, response.module_status);
         setModuleState((existing) => (existing?.id === runId ? currentState : existing));
         await persistLearningState(
           currentState,
@@ -603,37 +685,51 @@ export function VibeQuestApp({
           activeLessonIndexRef.current,
           tutorMessagesRef.current,
         );
+      } catch (error) {
+        if (generationRunRef.current !== runId) return;
+        const message = error instanceof Error ? error.message : "Module generation failed.";
+        const failedState = {
+          ...currentState,
+          generationStatus: "error" as const,
+          moduleStatuses: setModuleStatus(currentState.moduleStatuses, lessonIndex, queuedModuleStatus(lessonIndex, "failed", message)),
+        };
+        currentState = failedState;
+        setGenerationState("idle");
+        setModuleState((existing) => existing?.id === runId ? failedState : existing);
+        setGenerationError("A module failed to generate. The completed modules remain usable, and you can retry the failed module.");
+        logLearningEvent("generation_failed", {
+          moduleId: runId,
+          ecosystemId: currentState.ecosystem.id,
+          courseTitle: currentState.module.title,
+          metadata: { lesson_index: String(lessonIndex + 1), error: message.slice(0, 120) },
+        });
+        await persistLearningState(failedState, answersRef.current, activeLessonIndexRef.current, tutorMessagesRef.current);
+        return;
       }
-      if (generationRunRef.current !== runId) return;
-      const completeState = { ...currentState, generationStatus: "complete" as const };
-      setModuleState((existing) => (existing?.id === runId ? completeState : existing));
-      setGenerationState("idle");
-      await persistLearningState(
-        completeState,
-        answersRef.current,
-        activeLessonIndexRef.current,
-        tutorMessagesRef.current,
-      );
-    } catch (error) {
-      if (generationRunRef.current !== runId) return;
-      setGenerationState("idle");
-      setModuleState((existing) => existing?.id === runId ? { ...existing, generationStatus: "error" } : existing);
-      setGenerationError(error instanceof Error ? error.message : "Some modules could not be generated yet.");
     }
+    if (generationRunRef.current !== runId) return;
+    const completeState = { ...currentState, generationStatus: "complete" as const };
+    setModuleState((existing) => (existing?.id === runId ? completeState : existing));
+    setGenerationState("idle");
+    await persistLearningState(
+      completeState,
+      answersRef.current,
+      activeLessonIndexRef.current,
+      tutorMessagesRef.current,
+    );
   }
 
-  async function resumeCourseGeneration() {
-    if (!account || !moduleState) return;
-    const nextStartIndex = moduleState.module.lessons.length;
-    if (nextStartIndex >= moduleState.totalLessons || moduleState.generationStatus === "generating") return;
+  async function resumeGenerationForState(activeBaseState: ModuleState, startIndex = activeBaseState.module.lessons.length) {
+    if (!account) return;
+    if (startIndex >= activeBaseState.totalLessons || activeBaseState.generationStatus === "generating") return;
 
-    const runId = moduleState.id;
+    const runId = activeBaseState.id;
     generationRunRef.current = runId;
     setGenerationState("background");
     setGenerationError(null);
     setSyncWarning(null);
 
-    const activeState: ModuleState = { ...moduleState, generationStatus: "generating" };
+    const activeState: ModuleState = { ...activeBaseState, generationStatus: "generating" };
     setModuleState(activeState);
     await persistLearningState(activeState, answersRef.current, activeLessonIndexRef.current, tutorMessagesRef.current);
 
@@ -649,7 +745,88 @@ export function VibeQuestApp({
       pace: activeState.pace,
     };
 
-    void continueProgressiveGeneration(runId, activeState, request, nextStartIndex);
+    void continueProgressiveGeneration(runId, activeState, request, startIndex);
+  }
+
+  async function resumeCourseGeneration() {
+    if (!moduleState) return;
+    await resumeGenerationForState(moduleState);
+  }
+
+  async function resumeCourseGenerationFromCourse(record: LearningSessionRecord) {
+    const restoredState = moduleStateFromRecord(record);
+    applySessionRecord(record, { openModule: true });
+    navigateToCourse(record.module_id, record.module.lessons[record.active_lesson_index]?.id ?? record.module.lessons[0]?.id ?? null);
+    await resumeGenerationForState(restoredState);
+  }
+
+  async function regenerateModule(lessonIndex: number) {
+    if (!account || !moduleState) return;
+    if (lessonIndex < 0 || lessonIndex >= moduleState.totalLessons) return;
+    generationRunRef.current = moduleState.id;
+    setGenerationState("background");
+    setGenerationError(null);
+    setSyncWarning(null);
+
+    const generatingState: ModuleState = {
+      ...moduleState,
+      generationStatus: "generating",
+      moduleStatuses: setModuleStatus(moduleState.moduleStatuses, lessonIndex, queuedModuleStatus(lessonIndex, "generating")),
+    };
+    setModuleState(generatingState);
+    await persistLearningState(generatingState, answersRef.current, activeLessonIndexRef.current, tutorMessagesRef.current);
+
+    const request = {
+      ecosystem_id: generatingState.ecosystem.id,
+      path_id: generatingState.ecosystem.pathId,
+      topic: generatingState.topic,
+      learning_profile: generatingState.profile,
+      learning_intents: generatingState.intents,
+      interests: generatingState.interests,
+      learner_goal: generatingState.learnerGoal,
+      background: generatingState.profile,
+      pace: generatingState.pace,
+    };
+
+    try {
+      const response = await generateLearningLesson({
+        ...request,
+        lesson_index: lessonIndex,
+        prior_lessons: priorLearningLessonsForRequest(generatingState.module.lessons.filter((_, index) => index < lessonIndex)),
+      });
+      if (generationRunRef.current !== moduleState.id) return;
+      const nextState = {
+        ...appendGeneratedLesson(generatingState, response.lesson, response.warning, response.module_status),
+        generationStatus: generatingState.module.lessons.length + 1 >= generatingState.totalLessons ? "complete" as const : "ready" as const,
+      };
+      setModuleState(nextState);
+      setGenerationState("idle");
+      logLearningEvent("module_regenerated", {
+        moduleId: nextState.id,
+        lessonId: response.lesson.id,
+        ecosystemId: nextState.ecosystem.id,
+        courseTitle: nextState.module.title,
+        metadata: { lesson_index: String(lessonIndex + 1) },
+      });
+      await persistLearningState(nextState, answersRef.current, activeLessonIndexRef.current, tutorMessagesRef.current);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Module retry failed.";
+      const failedState = {
+        ...generatingState,
+        generationStatus: "error" as const,
+        moduleStatuses: setModuleStatus(generatingState.moduleStatuses, lessonIndex, queuedModuleStatus(lessonIndex, "failed", message)),
+      };
+      setGenerationState("idle");
+      setGenerationError("Module retry failed. Existing lessons remain usable.");
+      setModuleState(failedState);
+      logLearningEvent("generation_failed", {
+        moduleId: failedState.id,
+        ecosystemId: failedState.ecosystem.id,
+        courseTitle: failedState.module.title,
+        metadata: { lesson_index: String(lessonIndex + 1), error: message.slice(0, 120) },
+      });
+      await persistLearningState(failedState, answersRef.current, activeLessonIndexRef.current, tutorMessagesRef.current);
+    }
   }
 
   async function persistLearningState(
@@ -665,6 +842,7 @@ export function VibeQuestApp({
         module_id: nextModuleState.id,
         source: nextModuleState.source,
         module: nextModuleState.module,
+        module_statuses: nextModuleState.moduleStatuses,
         ecosystem_id: nextModuleState.ecosystem.id,
         topic: nextModuleState.topic,
         learning_profile: nextModuleState.profile,
@@ -693,7 +871,15 @@ export function VibeQuestApp({
 
   function openCourse(record: LearningSessionRecord) {
     applySessionRecord(record, { openModule: true });
-    navigateToCourse(record.module_id, record.module.lessons[record.active_lesson_index]?.id ?? record.module.lessons[0]?.id ?? null);
+    const lesson = record.module.lessons[record.active_lesson_index] ?? record.module.lessons[0] ?? null;
+    navigateToCourse(record.module_id, lesson?.id ?? null);
+    logLearningEvent("module_opened", {
+      moduleId: record.module_id,
+      lessonId: lesson?.id,
+      ecosystemId: asEcosystemId(record.ecosystem_id) ?? undefined,
+      courseTitle: record.module.title,
+      metadata: { source: "saved_course" },
+    });
   }
 
   function clearOpenedCourseIfNeeded(moduleId: string) {
@@ -723,6 +909,7 @@ export function VibeQuestApp({
       if (archiveConfirmed) {
         setCourseLibrary((courses) => courses.filter((course) => course.module_id !== record.module_id));
         clearOpenedCourseIfNeeded(record.module_id);
+        logLearningEvent("course_archived", { moduleId: record.module_id, ecosystemId: asEcosystemId(record.ecosystem_id) ?? undefined, courseTitle: record.module.title });
       }
       setSyncState(archiveConfirmed ? "saved" : "local-only");
       setSyncWarning(response.persistence.warning ?? (archiveConfirmed ? null : "Course archive could not be confirmed."));
@@ -744,6 +931,7 @@ export function VibeQuestApp({
       if (deleteConfirmed) {
         setCourseLibrary((courses) => courses.filter((course) => course.module_id !== record.module_id));
         clearOpenedCourseIfNeeded(record.module_id);
+        logLearningEvent("course_deleted", { moduleId: record.module_id, ecosystemId: asEcosystemId(record.ecosystem_id) ?? undefined, courseTitle: record.module.title });
       }
       setSyncState(deleteConfirmed ? "saved" : "local-only");
       setSyncWarning(response.persistence.warning ?? (deleteConfirmed ? null : "Course delete could not be confirmed."));
@@ -759,12 +947,47 @@ export function VibeQuestApp({
     if (!lesson) return;
     setActiveLessonIndex(index);
     navigateToCourse(moduleState.id, lesson.id);
+    logLearningEvent("module_opened", {
+      moduleId: moduleState.id,
+      lessonId: lesson.id,
+      ecosystemId: moduleState.ecosystem.id,
+      courseTitle: moduleState.module.title,
+      metadata: { lesson_index: String(index + 1) },
+    });
     void persistLearningState(moduleState, answers, index, tutorMessages);
   }
 
   function chooseAnswer(lesson: LearningLessonDto, answerIndex: number) {
     const nextAnswers = { ...answers, [lesson.id]: answerIndex };
+    const passed = answerIndex === lesson.checkpoint.correct_index;
     setAnswers(nextAnswers);
+    if (moduleState) {
+      logLearningEvent("checkpoint_attempted", {
+        moduleId: moduleState.id,
+        lessonId: lesson.id,
+        ecosystemId: moduleState.ecosystem.id,
+        courseTitle: moduleState.module.title,
+        metadata: { passed: String(passed), lesson_index: String(activeLessonIndex + 1) },
+      });
+      if (passed) {
+        logLearningEvent("checkpoint_passed", {
+          moduleId: moduleState.id,
+          lessonId: lesson.id,
+          ecosystemId: moduleState.ecosystem.id,
+          courseTitle: moduleState.module.title,
+          metadata: { lesson_index: String(activeLessonIndex + 1) },
+        });
+        const completedAfter = completedLessonCount(moduleState.module, nextAnswers);
+        if (completedAfter >= moduleState.totalLessons && moduleState.module.lessons.length >= moduleState.totalLessons) {
+          logLearningEvent("course_completed", {
+            moduleId: moduleState.id,
+            ecosystemId: moduleState.ecosystem.id,
+            courseTitle: moduleState.module.title,
+            metadata: { completed_lessons: String(completedAfter) },
+          });
+        }
+      }
+    }
     void persistLearningState(moduleState, nextAnswers, activeLessonIndex, tutorMessages);
   }
 
@@ -784,6 +1007,13 @@ export function VibeQuestApp({
         question,
       });
       appendTutorAnswer(question, response.answer);
+      logLearningEvent("tutor_used", {
+        moduleId: moduleState.id,
+        lessonId: activeLesson.id,
+        ecosystemId: moduleState.ecosystem.id,
+        courseTitle: generatedModule.title,
+        metadata: { question_length: String(question.length) },
+      });
       const savedSession = response.session;
       if (savedSession) {
         setCourseLibrary((courses) => upsertCourse(courses, savedSession));
@@ -869,6 +1099,16 @@ export function VibeQuestApp({
       setQuestError(error instanceof Error ? error.message : "Quest generation failed.");
     } finally {
       setQuestGenerationState("idle");
+    }
+  }
+
+  async function exportCourseForReview(moduleId: string) {
+    setReviewState((state) => ({ ...state, status: "loading", error: null }));
+    try {
+      const exportData = await exportLearningSession(moduleId);
+      setReviewState((state) => ({ ...state, status: "saved", exportData, error: exportData.persistence.warning }));
+    } catch (error) {
+      setReviewState((state) => ({ ...state, status: "local-only", error: error instanceof Error ? error.message : "Course export failed." }));
     }
   }
 
@@ -1053,6 +1293,7 @@ export function VibeQuestApp({
           onOpenCourse={openCourse}
           onArchiveCourse={(course) => void archiveCourse(course)}
           onDeleteCourse={(course) => void deleteCourse(course)}
+          onResumeCourseGeneration={(course) => void resumeCourseGenerationFromCourse(course)}
           ecosystems={ECOSYSTEMS}
           selectedEcosystem={selectedEcosystem}
           chooseEcosystem={chooseEcosystem}
@@ -1089,6 +1330,7 @@ export function VibeQuestApp({
           questGenerationState={questGenerationState}
           activeLessonPassed={activeLessonPassed}
           onResumeGeneration={() => void resumeCourseGeneration()}
+          onRegenerateModule={(lessonIndex) => void regenerateModule(lessonIndex)}
         />
       ) : null}
       {activeTab === "workbench" ? (
@@ -1101,6 +1343,20 @@ export function VibeQuestApp({
           onSubmitRunner={() => void submitSelectedFileToRunner()}
           onRefreshRunner={() => void refreshRunnerSubmission()}
           runnerSubmitting={runnerSubmitting}
+        />
+      ) : null}
+      {activeTab === "review" ? (
+        <ReviewerView
+          reviewState={reviewState}
+          metricsState={metricsState}
+          courseLibrary={courseLibrary}
+          onReload={() => {
+            setReviewState((state) => ({ ...state, status: "loading", error: null }));
+            void loadLearningAdminReview()
+              .then((data) => setReviewState((state) => ({ ...state, status: "saved", data, error: null })))
+              .catch((error) => setReviewState((state) => ({ ...state, status: "local-only", error: error instanceof Error ? error.message : "Review data failed to load." })));
+          }}
+          onExport={(moduleId) => void exportCourseForReview(moduleId)}
         />
       ) : null}
     </div>
@@ -1565,15 +1821,21 @@ function DashboardView({
     const ecosystemCourses = courseLibrary.filter((course) => asEcosystemId(course.ecosystem_id) === ecosystem.id);
     const aggregate = courseLibraryProgress(ecosystemCourses);
     const active = ecosystem.id === activeTrackId;
+    const generatedModules = ecosystemCourses.reduce((sum, course) => sum + course.module.lessons.length, 0);
+    const failedModules = ecosystemCourses.reduce((sum, course) => sum + (course.module_statuses ?? []).filter((status) => status.status === "failed").length, 0);
+    const pendingModules = Math.max(ecosystemCourses.length * TOTAL_LEARNING_MODULES - generatedModules, 0);
     const trackProgress = aggregate.totalGenerated ? Math.round((aggregate.totalCompleted / aggregate.totalGenerated) * 100) : 0;
     return {
       ecosystem,
       active,
       completed: aggregate.totalCompleted,
       total: aggregate.totalGenerated,
+      generatedModules,
+      failedModules,
+      pendingModules,
       progress: trackProgress,
-      status: active ? "Active" : ecosystemCourses.length ? `${ecosystemCourses.length} course${ecosystemCourses.length === 1 ? "" : "s"}` : "Open",
-      action: ecosystemCourses[0] ? "Resume" : "Open Learn",
+      status: failedModules ? `${failedModules} retry` : active ? "Active" : pendingModules && ecosystemCourses.length ? `${pendingModules} pending` : ecosystemCourses.length ? `${ecosystemCourses.length} course${ecosystemCourses.length === 1 ? "" : "s"}` : "Open",
+      action: ecosystemCourses[0] ? failedModules || pendingModules ? "Continue" : "Resume" : "Open Learn",
       course: ecosystemCourses[0] ?? null,
     };
   });
@@ -1717,6 +1979,9 @@ function DashboardView({
                 active={track.active}
                 completed={track.completed}
                 total={track.total}
+                generatedModules={track.generatedModules}
+                failedModules={track.failedModules}
+                pendingModules={track.pendingModules}
                 progress={track.progress}
                 status={track.status}
                 action={track.action}
@@ -1913,6 +2178,9 @@ function DashboardTrackCard({
   active,
   completed,
   total,
+  generatedModules,
+  failedModules,
+  pendingModules,
   progress,
   status,
   action,
@@ -1922,6 +2190,9 @@ function DashboardTrackCard({
   active: boolean;
   completed: number;
   total: number;
+  generatedModules: number;
+  failedModules: number;
+  pendingModules: number;
   progress: number;
   status: string;
   action: string;
@@ -1950,7 +2221,7 @@ function DashboardTrackCard({
           </span>
           <div>
             <h3 className="text-2xl font-black text-white">{ecosystem.label}</h3>
-            <p className="mt-1 text-base text-white/52">{total ? `${completed} / ${total} lessons` : "No generated module"}</p>
+            <p className="mt-1 text-base text-white/52">{total ? `${completed} / ${total} checkpoints` : "No generated module"}</p>
           </div>
         </div>
         {active ? (
@@ -1962,9 +2233,14 @@ function DashboardTrackCard({
         <span className={`block h-full rounded-full ${progressColor}`} style={{ width: `${progress}%` }} />
       </div>
       <div className="mt-4 flex items-center justify-between gap-4 text-sm">
-        <span className="text-white/45">{total ? `${completed}/${total} complete` : "Generate in Learn"}</span>
+        <span className="text-white/45">{total ? `${completed}/${total} complete · ${generatedModules} generated` : "Generate in Learn"}</span>
         <span className={textColor}>{progress}%</span>
       </div>
+      {failedModules || pendingModules ? (
+        <p className="mt-3 rounded-lg border border-warning-amber/20 bg-warning-amber/10 px-3 py-2 text-xs leading-5 text-warning-amber">
+          {failedModules ? `${failedModules} module${failedModules === 1 ? "" : "s"} need retry.` : `${pendingModules} module${pendingModules === 1 ? "" : "s"} still need generation.`}
+        </p>
+      ) : null}
       <div className="mt-7 flex items-center justify-between gap-4">
         <span className="text-sm text-white/45">Current session</span>
         <button type="button" onClick={onOpen} className={`inline-flex items-center gap-2 text-base font-black ${textColor} transition hover:brightness-125`}>
@@ -2000,6 +2276,7 @@ function LearnView(props: {
   onOpenCourse: (course: LearningSessionRecord) => void;
   onArchiveCourse: (course: LearningSessionRecord) => void;
   onDeleteCourse: (course: LearningSessionRecord) => void;
+  onResumeCourseGeneration: (course: LearningSessionRecord) => void;
   generationState: GenerationState;
   generationError: string | null;
   onGenerate: () => Promise<void>;
@@ -2022,6 +2299,7 @@ function LearnView(props: {
   questGenerationState: "idle" | "loading";
   activeLessonPassed: boolean;
   onResumeGeneration: () => void;
+  onRegenerateModule: (lessonIndex: number) => void;
 }) {
   const learningModule = props.moduleState?.module ?? null;
   const activeLesson = learningModule?.lessons[props.activeLessonIndex] ?? null;
@@ -2053,6 +2331,7 @@ function LearnView(props: {
         activeLessonPassed={props.activeLessonPassed}
         onBackToSelect={props.onBackToSelect}
         onResumeGeneration={props.onResumeGeneration}
+        onRegenerateModule={props.onRegenerateModule}
       />
     );
   }
@@ -2079,6 +2358,7 @@ function LearnView(props: {
       onOpenCourse={props.onOpenCourse}
       onArchiveCourse={props.onArchiveCourse}
       onDeleteCourse={props.onDeleteCourse}
+      onResumeCourseGeneration={props.onResumeCourseGeneration}
       generationError={props.generationError}
       onGenerate={props.onGenerate}
       syncWarning={props.syncWarning}
@@ -2107,6 +2387,7 @@ function LearningSelectView({
   onOpenCourse,
   onArchiveCourse,
   onDeleteCourse,
+  onResumeCourseGeneration,
   generationError,
   onGenerate,
   syncWarning,
@@ -2131,6 +2412,7 @@ function LearningSelectView({
   onOpenCourse: (course: LearningSessionRecord) => void;
   onArchiveCourse: (course: LearningSessionRecord) => void;
   onDeleteCourse: (course: LearningSessionRecord) => void;
+  onResumeCourseGeneration: (course: LearningSessionRecord) => void;
   generationError: string | null;
   onGenerate: () => Promise<void>;
   syncWarning: string | null;
@@ -2226,8 +2508,10 @@ function LearningSelectView({
                   const ecosystem = ecosystemById(asEcosystemId(course.ecosystem_id) ?? "zcash");
                   const progress = courseProgress(course);
                   const generatedCount = course.module.lessons.length;
+                  const failedCount = (course.module_statuses ?? []).filter((status) => status.status === "failed").length;
                   const generatedPercent = Math.min(100, Math.round((generatedCount / TOTAL_LEARNING_MODULES) * 100));
-                  const isFullyGenerated = generatedCount >= TOTAL_LEARNING_MODULES;
+                  const isFullyGenerated = generatedCount >= TOTAL_LEARNING_MODULES && failedCount === 0;
+                  const needsGenerationAction = generatedCount < TOTAL_LEARNING_MODULES || failedCount > 0;
                   return (
                     <article
                       key={course.module_id}
@@ -2238,7 +2522,7 @@ function LearningSelectView({
                           {ecosystem.label}
                         </span>
                         <span className={isFullyGenerated ? "text-xs font-bold text-green-300" : "text-xs font-bold text-yellow-300"}>
-                          {isFullyGenerated ? "Course ready" : `${generatedCount}/${TOTAL_LEARNING_MODULES} modules ready`}
+                          {failedCount > 0 ? `${failedCount} retry needed` : isFullyGenerated ? "Course ready" : `${generatedCount}/${TOTAL_LEARNING_MODULES} modules ready`}
                         </span>
                       </div>
                       <h3 className="mt-3 line-clamp-2 text-lg font-black leading-6 text-white">{course.module.title}</h3>
@@ -2262,6 +2546,15 @@ function LearningSelectView({
                           >
                             Open <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                           </button>
+                          {needsGenerationAction ? (
+                            <button
+                              type="button"
+                              onClick={() => onResumeCourseGeneration(course)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-warning-amber/25 bg-warning-amber/10 px-3 py-2 text-xs font-black text-warning-amber hover:border-warning-amber/45"
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {failedCount > 0 ? "Retry" : "Generate rest"}
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => onArchiveCourse(course)}
@@ -2570,6 +2863,7 @@ function GeneratedModuleView({
   activeLessonPassed,
   onBackToSelect,
   onResumeGeneration,
+  onRegenerateModule,
 }: {
   moduleState: ModuleState;
   activeLesson: LearningLessonDto;
@@ -2590,6 +2884,7 @@ function GeneratedModuleView({
   activeLessonPassed: boolean;
   onBackToSelect: () => void;
   onResumeGeneration: () => void;
+  onRegenerateModule: (lessonIndex: number) => void;
 }) {
   const learningModule = moduleState.module;
   const [draftAnswer, setDraftAnswer] = useState<number | undefined>(selectedAnswer);
@@ -2628,6 +2923,8 @@ function GeneratedModuleView({
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
   const pendingLessonCount = Math.max(moduleState.totalLessons - learningModule.lessons.length, 0);
+  const pendingStatuses = moduleState.moduleStatuses.filter((status) => status.lesson_index >= learningModule.lessons.length || status.status === "failed");
+  const failedStatuses = moduleState.moduleStatuses.filter((status) => status.status === "failed");
   const lessonResources = criticalLearningResources(
     activeLesson.resources && activeLesson.resources.length > 0 ? activeLesson.resources : learningModule.resources,
     activeLesson,
@@ -2694,7 +2991,9 @@ function GeneratedModuleView({
             const active = index === activeLessonIndex;
             const passed = lessonPassed(lesson);
             const locked = !lessonUnlocked(index);
-            const status = locked ? "Locked" : active ? "In progress" : passed ? "Checkpoint passed" : "Checkpoint open";
+            const moduleStatus = moduleState.moduleStatuses[index];
+            const failed = moduleStatus?.status === "failed";
+            const status = failed ? "Retry needed" : locked ? "Locked" : active ? "In progress" : passed ? "Checkpoint passed" : moduleStatus?.status === "validated" ? "Validated" : "Checkpoint open";
             const submodules = lesson.submodules ?? [];
             return (
               <button
@@ -2715,9 +3014,29 @@ function GeneratedModuleView({
                 <span className="font-mono text-sm font-semibold text-white/42">{String(index + 1).padStart(2, "0")}</span>
                 <span className="min-w-0">
                   <span className="line-clamp-2 text-sm font-semibold leading-5 text-white/78">{lesson.title}</span>
-                  <span className={passed ? "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-cyber-green" : active ? "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-warning-amber" : "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-white/35"}>
+                  <span className={failed ? "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-red-300" : passed || moduleStatus?.status === "validated" ? "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-cyber-green" : active ? "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-warning-amber" : "mt-2 block font-mono text-[10px] font-black uppercase tracking-[0.12em] text-white/35"}>
                     {status}
                   </span>
+                  {failed ? (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onRegenerateModule(index);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onRegenerateModule(index);
+                        }
+                      }}
+                      className="mt-3 inline-flex rounded-md bg-warning-amber px-3 py-2 text-[11px] font-black text-black"
+                    >
+                      Retry module
+                    </span>
+                  ) : null}
                   {active && submodules.length > 0 ? (
                     <span className="mt-3 block space-y-2 border-t border-white/[0.07] pt-3">
                       <span className="block font-mono text-[10px] font-black uppercase tracking-[0.14em] text-electric-blue">Submodules</span>
@@ -2734,16 +3053,30 @@ function GeneratedModuleView({
               </button>
             );
           })}
-          {pendingLessonCount > 0 ? (
+          {pendingLessonCount > 0 || failedStatuses.length > 0 ? (
             <div className="rounded-lg border border-dashed border-electric-blue/25 bg-electric-blue/[0.035] px-4 py-4">
               <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-electric-blue">
-                {pendingLessonCount} module{pendingLessonCount === 1 ? "" : "s"} still generating
+                {failedStatuses.length > 0 ? `${failedStatuses.length} module${failedStatuses.length === 1 ? "" : "s"} need retry` : `${pendingLessonCount} module${pendingLessonCount === 1 ? "" : "s"} still generating`}
               </p>
               <p className="mt-2 text-xs leading-5 text-white/45">
                 {canResumeGeneration
                   ? "This partial course was restored from saved state. Generate the remaining modules when you are ready."
                   : "You can keep learning while Core saves the remaining modules."}
               </p>
+              {pendingStatuses.slice(0, 5).map((status) => (
+                <div key={status.lesson_index} className="mt-3 rounded-md border border-white/[0.06] bg-[#020b0a] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono text-[11px] font-bold text-white/55">Module {status.lesson_index + 1}</span>
+                    <span className={status.status === "failed" ? "font-mono text-[10px] font-black uppercase text-red-300" : "font-mono text-[10px] font-black uppercase text-electric-blue"}>{status.status}</span>
+                  </div>
+                  {status.error ? <p className="mt-2 text-xs leading-5 text-red-200/70">{status.error}</p> : null}
+                  {status.status === "failed" ? (
+                    <button type="button" onClick={() => onRegenerateModule(status.lesson_index)} className="mt-3 w-full rounded-lg bg-warning-amber px-3 py-2 text-xs font-black text-black transition hover:brightness-110">
+                      Retry this module
+                    </button>
+                  ) : null}
+                </div>
+              ))}
               {canResumeGeneration ? (
                 <button
                   type="button"
@@ -2950,16 +3283,33 @@ function GeneratedModuleView({
 function LessonValidationBadge({ lesson }: { lesson: LearningLessonDto }) {
   const quality = lesson.quality_score;
   const evidenceCount = lesson.evidence_map?.length ?? 0;
-  const passed = quality?.passed ?? evidenceCount > 0;
+  const gates = [
+    { label: "Source grounded", passed: evidenceCount > 0 && (quality?.source_coverage ?? 0) >= 75 },
+    { label: "Depth", passed: (quality?.technical_depth ?? 0) >= 75 },
+    { label: "Placeholder-free", passed: quality?.placeholder_free ?? true },
+    { label: "Repetition check", passed: true },
+    { label: "Checkpoint quality", passed: (quality?.checkpoint_quality ?? 0) >= 75 },
+    { label: "Ecosystem aligned", passed: quality?.ecosystem_alignment ?? true },
+  ];
+  const passed = quality?.passed ?? gates.every((gate) => gate.passed);
 
   return (
-    <div className={passed ? "mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-cyber-green/25 bg-cyber-green/[0.045] p-4 text-sm text-cyber-green" : "mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-4 text-sm text-warning-amber"}>
-      <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-      <span className="font-black">{passed ? "Validated lesson" : "Validation needs review"}</span>
-      <span className="text-white/52">
-        {evidenceCount} source-pack evidence link{evidenceCount === 1 ? "" : "s"}
-        {quality ? ` · depth ${quality.technical_depth}% · checkpoint ${quality.checkpoint_quality}%` : ""}
-      </span>
+    <div className={passed ? "mt-5 rounded-xl border border-cyber-green/25 bg-cyber-green/[0.045] p-4 text-sm text-cyber-green" : "mt-5 rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-4 text-sm text-warning-amber"}>
+      <div className="flex flex-wrap items-center gap-3">
+        <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+        <span className="font-black">{passed ? "Validated lesson" : "Validation needs review"}</span>
+        <span className="text-white/52">
+          {evidenceCount} source-pack evidence link{evidenceCount === 1 ? "" : "s"}
+          {quality ? ` · depth ${quality.technical_depth}% · checkpoint ${quality.checkpoint_quality}%` : ""}
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {gates.map((gate) => (
+          <span key={gate.label} className={gate.passed ? "rounded-full border border-cyber-green/25 bg-cyber-green/10 px-2.5 py-1 text-[11px] font-bold text-cyber-green" : "rounded-full border border-warning-amber/25 bg-warning-amber/10 px-2.5 py-1 text-[11px] font-bold text-warning-amber"}>
+            {gate.passed ? "✓" : "!"} {gate.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -3311,6 +3661,126 @@ function accountSummaryFromSession(session: { user?: { id?: string | null; name?
   };
 }
 
+function ReviewerView({
+  reviewState,
+  metricsState,
+  courseLibrary,
+  onReload,
+  onExport,
+}: {
+  reviewState: ReviewState;
+  metricsState: LearningMetricsResponse | null;
+  courseLibrary: LearningSessionRecord[];
+  onReload: () => void;
+  onExport: (moduleId: string) => void;
+}) {
+  const data = reviewState.data;
+  const sessions = data?.sessions ?? courseLibrary;
+  const metrics = data?.metrics ?? metricsState?.summary ?? null;
+  const exportData = reviewState.exportData;
+
+  return (
+    <main className="min-h-[calc(100vh-70px)] bg-[#030d0b] px-6 py-10 text-white md:px-8">
+      <section className="mx-auto max-w-[1280px]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Reviewer Mode</p>
+            <h1 className="mt-4 text-4xl font-black tracking-[-0.055em] text-white md:text-5xl">Generated learning review</h1>
+            <p className="mt-4 max-w-3xl text-base leading-7 text-white/55">
+              Internal source-grounding, generation-state, event, and export view for auditing generated courses before public distribution.
+            </p>
+          </div>
+          <button type="button" onClick={onReload} className="h-12 rounded-xl bg-electric-blue px-5 text-sm font-black text-black transition hover:brightness-110">
+            {reviewState.status === "loading" ? "Loading..." : "Refresh review data"}
+          </button>
+        </div>
+
+        {reviewState.error ? <Notice tone="amber" text={reviewState.error} /> : null}
+
+        {metrics ? (
+          <section className="mt-8 grid gap-4 md:grid-cols-4">
+            <ReviewerMetric label="Events" value={String(metrics.total_events)} />
+            <ReviewerMetric label="Courses" value={String(metrics.courses_generated)} />
+            <ReviewerMetric label="Checkpoints" value={`${metrics.checkpoints_passed}/${metrics.checkpoints_attempted}`} />
+            <ReviewerMetric label="Tutor Uses" value={String(metrics.tutor_used)} />
+          </section>
+        ) : null}
+
+        <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_420px]">
+          <div className="space-y-4">
+            {sessions.length > 0 ? sessions.map((session) => {
+              const statuses = normalizeModuleStatuses(session.module, session.module_statuses, TOTAL_LEARNING_MODULES);
+              const failed = statuses.filter((status) => status.status === "failed").length;
+              const validated = statuses.filter((status) => status.status === "validated").length;
+              const ecosystem = ecosystemById(asEcosystemId(session.ecosystem_id) ?? "zcash");
+              return (
+                <article key={session.module_id} className="rounded-2xl border border-white/[0.07] bg-[#071410] p-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <span className="rounded-md bg-electric-blue/10 px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-electric-blue">{ecosystem.label}</span>
+                      <h2 className="mt-3 text-xl font-black text-white">{session.module.title}</h2>
+                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/50">{session.topic ?? session.module.outcome}</p>
+                    </div>
+                    <button type="button" onClick={() => onExport(session.module_id)} className="h-10 rounded-lg border border-electric-blue/35 px-4 text-xs font-black text-electric-blue hover:bg-electric-blue/10">
+                      Export Markdown/JSON
+                    </button>
+                  </div>
+                  <div className="mt-5 grid gap-2 sm:grid-cols-5">
+                    {statuses.map((status) => (
+                      <div key={status.lesson_index} className="rounded-lg border border-white/[0.06] bg-[#020b0a] p-3">
+                        <p className="font-mono text-[10px] font-black uppercase tracking-[0.12em] text-white/35">Module {status.lesson_index + 1}</p>
+                        <p className={status.status === "failed" ? "mt-2 text-sm font-black text-red-300" : status.status === "validated" ? "mt-2 text-sm font-black text-cyber-green" : "mt-2 text-sm font-black text-electric-blue"}>{status.status}</p>
+                        <p className="mt-1 text-[11px] text-white/40">{status.validation.passed ? "validation passed" : "review gates open"}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-4 text-xs text-white/42">Validated {validated}/{statuses.length}. Failed {failed}. Last activity {relativeActivityTime(session.updated_at)}.</p>
+                </article>
+              );
+            }) : (
+              <div className="rounded-2xl border border-dashed border-white/[0.08] bg-[#071410] p-8 text-center text-white/55">
+                No generated courses available for this account yet.
+              </div>
+            )}
+          </div>
+
+          <aside className="space-y-4">
+            <section className="rounded-2xl border border-white/[0.07] bg-[#071410] p-5">
+              <h2 className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Recent events</h2>
+              <div className="mt-4 space-y-3">
+                {(data?.recent_events ?? metricsState?.recent_events ?? []).slice(0, 10).map((event) => (
+                  <div key={event.event_id} className="rounded-lg border border-white/[0.06] bg-[#020b0a] p-3">
+                    <p className="font-mono text-[11px] font-black uppercase tracking-[0.12em] text-white/45">{event.event_type}</p>
+                    <p className="mt-1 text-sm text-white/70">{event.course_title ?? event.module_id ?? "Learning event"}</p>
+                    <p className="mt-1 text-xs text-white/38">{relativeActivityTime(event.created_at)}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {exportData ? (
+              <section className="rounded-2xl border border-electric-blue/25 bg-[#071410] p-5">
+                <h2 className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">Export preview</h2>
+                <p className="mt-3 text-sm text-white/55">{exportData.session?.module.title ?? "No session selected"}</p>
+                <textarea readOnly value={exportData.markdown} className="mt-4 h-[360px] w-full resize-none rounded-xl border border-white/[0.07] bg-[#020b0a] p-4 font-mono text-xs leading-5 text-white/70 outline-none" />
+              </section>
+            ) : null}
+          </aside>
+        </section>
+      </section>
+    </main>
+  );
+}
+
+function ReviewerMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-xl border border-white/[0.07] bg-[#071410] p-5">
+      <p className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-white/40">{label}</p>
+      <p className="mt-4 text-3xl font-black text-white">{value}</p>
+    </article>
+  );
+}
+
 function WorkbenchView({
   moduleState,
   questState,
@@ -3504,6 +3974,7 @@ function currentAppRoute(pathOverride?: string | null): { tab: TabId; courseId: 
   if (pathname === "/") return { tab: "landing", courseId: null, lessonId: null };
   if (parts[0] === "dashboard") return { tab: "dashboard", courseId: null, lessonId: null };
   if (parts[0] === "workbench") return { tab: "workbench", courseId: null, lessonId: null };
+  if (parts[0] === "review") return { tab: "review", courseId: null, lessonId: null };
   if (parts[0] === "courses" && parts[1]) {
     const lessonMarker = parts.indexOf("lessons");
     return {
@@ -3575,13 +4046,107 @@ function moduleFromGeneratedLesson(response: Awaited<ReturnType<typeof generateL
   };
 }
 
+function emptyModuleValidationState(): LearningModuleGenerationStateDto["validation"] {
+  return {
+    source_grounding: false,
+    technical_depth: false,
+    placeholder_free: false,
+    repetition_check: false,
+    checkpoint_quality: false,
+    ecosystem_alignment: false,
+    passed: false,
+  };
+}
+
+function validationStateFromLesson(lesson: LearningLessonDto): LearningModuleGenerationStateDto["validation"] {
+  const quality = lesson.quality_score;
+  const sourceGrounded = Boolean((lesson.evidence_map?.length ?? 0) > 0 && (quality?.source_coverage ?? 0) >= 75);
+  const technicalDepth = (quality?.technical_depth ?? 0) >= 75;
+  const placeholderFree = quality?.placeholder_free ?? true;
+  const checkpointQuality = (quality?.checkpoint_quality ?? 0) >= 75;
+  const ecosystemAlignment = quality?.ecosystem_alignment ?? true;
+  return {
+    source_grounding: sourceGrounded,
+    technical_depth: technicalDepth,
+    placeholder_free: placeholderFree,
+    repetition_check: true,
+    checkpoint_quality: checkpointQuality,
+    ecosystem_alignment: ecosystemAlignment,
+    passed: Boolean(quality?.passed ?? (sourceGrounded && checkpointQuality)),
+  };
+}
+
+function moduleStatusFromLesson(index: number, lesson: LearningLessonDto, override?: Partial<LearningModuleGenerationStateDto>): LearningModuleGenerationStateDto {
+  const validation = override?.validation ?? validationStateFromLesson(lesson);
+  return {
+    lesson_index: index,
+    lesson_id: lesson.id,
+    status: override?.status ?? (validation.passed ? "validated" : "ready"),
+    validation,
+    error: override?.error ?? null,
+    updated_at: override?.updated_at ?? new Date().toISOString(),
+  };
+}
+
+function queuedModuleStatus(index: number, status: LearningModuleGenerationStateDto["status"] = "queued", error?: string | null): LearningModuleGenerationStateDto {
+  return {
+    lesson_index: index,
+    lesson_id: null,
+    status,
+    validation: emptyModuleValidationState(),
+    error: error ?? null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function moduleStatusesForModule(module: LearningModuleDto, totalLessons = TOTAL_LEARNING_MODULES): LearningModuleGenerationStateDto[] {
+  return Array.from({ length: totalLessons }, (_, index) => {
+    const lesson = module.lessons[index];
+    return lesson ? moduleStatusFromLesson(index, lesson) : queuedModuleStatus(index);
+  });
+}
+
+function normalizeModuleStatuses(
+  module: LearningModuleDto,
+  statuses: LearningModuleGenerationStateDto[] | undefined,
+  totalLessons = TOTAL_LEARNING_MODULES,
+): LearningModuleGenerationStateDto[] {
+  const merged = moduleStatusesForModule(module, totalLessons);
+  for (const status of statuses ?? []) {
+    if (status.lesson_index < 0 || status.lesson_index >= totalLessons) continue;
+    const lesson = module.lessons[status.lesson_index];
+    merged[status.lesson_index] = lesson
+      ? moduleStatusFromLesson(status.lesson_index, lesson, status)
+      : {
+          ...queuedModuleStatus(status.lesson_index, status.status || "queued", status.error ?? null),
+          lesson_id: status.lesson_id ?? null,
+          validation: status.validation ?? emptyModuleValidationState(),
+          updated_at: status.updated_at || new Date().toISOString(),
+        };
+  }
+  return merged;
+}
+
+function setModuleStatus(
+  statuses: LearningModuleGenerationStateDto[],
+  index: number,
+  next: LearningModuleGenerationStateDto,
+): LearningModuleGenerationStateDto[] {
+  const copy = statuses.length >= TOTAL_LEARNING_MODULES ? [...statuses] : [...statuses, ...Array.from({ length: TOTAL_LEARNING_MODULES - statuses.length }, (_, offset) => queuedModuleStatus(statuses.length + offset))];
+  copy[index] = next;
+  return copy;
+}
+
 function appendGeneratedLesson(
   moduleState: ModuleState,
   lesson: LearningLessonDto,
   warning: string | null,
+  moduleStatus?: LearningModuleGenerationStateDto,
 ): ModuleState {
+  const lessonIndex = moduleStatus?.lesson_index ?? Math.max(0, lessonOrder(lesson.id) - 1);
   const lessons = [...moduleState.module.lessons.filter((item) => item.id !== lesson.id), lesson]
     .sort((a, b) => lessonOrder(a.id) - lessonOrder(b.id));
+  const status = moduleStatus ?? moduleStatusFromLesson(lessonIndex, lesson);
   return {
     ...moduleState,
     warning,
@@ -3589,6 +4154,7 @@ function appendGeneratedLesson(
       ...moduleState.module,
       lessons,
     },
+    moduleStatuses: setModuleStatus(moduleState.moduleStatuses, lessonIndex, status),
     generationStatus: lessons.length >= moduleState.totalLessons ? "complete" : "generating",
   };
 }
