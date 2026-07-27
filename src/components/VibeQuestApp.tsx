@@ -2,6 +2,7 @@
 "use client";
 
 import {
+  Archive,
   ArrowRight,
   BookOpen,
   Brain,
@@ -20,6 +21,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Terminal,
+  Trash2,
   X,
   Zap,
 } from "lucide-react";
@@ -31,7 +33,9 @@ import {
   type AccountSummary,
 } from "@/components/AccountControl";
 import {
+  archiveLearningSession,
   askAndSaveLearningTutor,
+  deleteLearningSession,
   generateLearningLesson,
   generateLearningQuest,
   getRunnerSubmission,
@@ -692,6 +696,63 @@ export function VibeQuestApp({
     navigateToCourse(record.module_id, record.module.lessons[record.active_lesson_index]?.id ?? record.module.lessons[0]?.id ?? null);
   }
 
+  function clearOpenedCourseIfNeeded(moduleId: string) {
+    if (moduleState?.id !== moduleId) return;
+    generationRunRef.current = null;
+    setModuleState(null);
+    setAnswers({});
+    setTutorMessages([]);
+    setTutorQuestion("");
+    setTutorError(null);
+    setQuestState(null);
+    setQuestError(null);
+    setActiveLessonIndex(0);
+    setLearnScreenMode("select");
+    setRequestedCourseId(null);
+    setRequestedLessonId(null);
+    setActiveTab("learn");
+    replaceAppPath("/learn");
+  }
+
+  async function archiveCourse(record: LearningSessionRecord) {
+    setSyncState("saving");
+    setSyncWarning(null);
+    try {
+      const response = await archiveLearningSession(record.module_id);
+      const archiveConfirmed = response.archived || !response.persistence.warning;
+      if (archiveConfirmed) {
+        setCourseLibrary((courses) => courses.filter((course) => course.module_id !== record.module_id));
+        clearOpenedCourseIfNeeded(record.module_id);
+      }
+      setSyncState(archiveConfirmed ? "saved" : "local-only");
+      setSyncWarning(response.persistence.warning ?? (archiveConfirmed ? null : "Course archive could not be confirmed."));
+    } catch (error) {
+      setSyncState("local-only");
+      setSyncWarning(error instanceof Error ? error.message : "Course archive failed.");
+    }
+  }
+
+  async function deleteCourse(record: LearningSessionRecord) {
+    const shouldDelete = typeof window === "undefined" || window.confirm(`Delete “${record.module.title}” from your saved courses?`);
+    if (!shouldDelete) return;
+
+    setSyncState("saving");
+    setSyncWarning(null);
+    try {
+      const response = await deleteLearningSession(record.module_id);
+      const deleteConfirmed = response.deleted || !response.persistence.warning;
+      if (deleteConfirmed) {
+        setCourseLibrary((courses) => courses.filter((course) => course.module_id !== record.module_id));
+        clearOpenedCourseIfNeeded(record.module_id);
+      }
+      setSyncState(deleteConfirmed ? "saved" : "local-only");
+      setSyncWarning(response.persistence.warning ?? (deleteConfirmed ? null : "Course delete could not be confirmed."));
+    } catch (error) {
+      setSyncState("local-only");
+      setSyncWarning(error instanceof Error ? error.message : "Course delete failed.");
+    }
+  }
+
   function chooseLesson(index: number) {
     if (!moduleState) return;
     const lesson = moduleState.module.lessons[index];
@@ -990,6 +1051,8 @@ export function VibeQuestApp({
           courseLibrary={courseLibrary}
           libraryState={libraryState}
           onOpenCourse={openCourse}
+          onArchiveCourse={(course) => void archiveCourse(course)}
+          onDeleteCourse={(course) => void deleteCourse(course)}
           ecosystems={ECOSYSTEMS}
           selectedEcosystem={selectedEcosystem}
           chooseEcosystem={chooseEcosystem}
@@ -1935,6 +1998,8 @@ function LearnView(props: {
   courseLibrary: LearningSessionRecord[];
   libraryState: SyncState;
   onOpenCourse: (course: LearningSessionRecord) => void;
+  onArchiveCourse: (course: LearningSessionRecord) => void;
+  onDeleteCourse: (course: LearningSessionRecord) => void;
   generationState: GenerationState;
   generationError: string | null;
   onGenerate: () => Promise<void>;
@@ -2012,6 +2077,8 @@ function LearnView(props: {
       courseLibrary={props.courseLibrary}
       libraryState={props.libraryState}
       onOpenCourse={props.onOpenCourse}
+      onArchiveCourse={props.onArchiveCourse}
+      onDeleteCourse={props.onDeleteCourse}
       generationError={props.generationError}
       onGenerate={props.onGenerate}
       syncWarning={props.syncWarning}
@@ -2038,6 +2105,8 @@ function LearningSelectView({
   courseLibrary,
   libraryState,
   onOpenCourse,
+  onArchiveCourse,
+  onDeleteCourse,
   generationError,
   onGenerate,
   syncWarning,
@@ -2060,6 +2129,8 @@ function LearningSelectView({
   courseLibrary: LearningSessionRecord[];
   libraryState: SyncState;
   onOpenCourse: (course: LearningSessionRecord) => void;
+  onArchiveCourse: (course: LearningSessionRecord) => void;
+  onDeleteCourse: (course: LearningSessionRecord) => void;
   generationError: string | null;
   onGenerate: () => Promise<void>;
   syncWarning: string | null;
@@ -2068,7 +2139,12 @@ function LearningSelectView({
   const configuringEcosystem = configuringEcosystemId
     ? ecosystems.find((ecosystem) => ecosystem.id === configuringEcosystemId) ?? selectedEcosystem
     : null;
-  const recentCourses = courseLibrary.slice(0, 4);
+  const [libraryFilter, setLibraryFilter] = useState<EcosystemId | "all">("all");
+  const activeCourses = courseLibrary.filter((course) => course.status !== "archived");
+  const visibleCourses = activeCourses.filter((course) => {
+    if (libraryFilter === "all") return true;
+    return asEcosystemId(course.ecosystem_id) === libraryFilter;
+  });
 
   function openConfigurator(ecosystem: EcosystemOption) {
     chooseEcosystem(ecosystem);
@@ -2098,42 +2174,125 @@ function LearningSelectView({
           </p>
         </div>
 
-        {recentCourses.length > 0 ? (
-          <section className="mt-12 w-full rounded-2xl border border-electric-blue/20 bg-[#071410] p-5 text-left">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {activeCourses.length > 0 ? (
+          <section className="mt-12 w-full rounded-2xl border border-electric-blue/20 bg-[#071410] p-5 text-left shadow-[0_0_42px_rgba(0,240,255,0.035)]">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-electric-blue">My Courses</p>
-                <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-white">Resume saved learning</h2>
+                <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-white">Resume or manage saved learning</h2>
+                <p className="mt-2 max-w-[680px] text-sm leading-6 text-white/48">
+                  Open any generated course, continue partially generated tracks, or archive/delete old sessions so your learning path stays clear.
+                </p>
               </div>
-              <span className="text-sm text-white/45">{syncStateLabel(libraryState)}</span>
+              <span className="shrink-0 rounded-full border border-white/[0.07] bg-[#020b0a] px-3 py-1.5 text-xs font-semibold text-white/45">
+                {syncStateLabel(libraryState)} · {activeCourses.length} saved
+              </span>
             </div>
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {recentCourses.map((course) => {
-                const ecosystem = ecosystemById(asEcosystemId(course.ecosystem_id) ?? "zcash");
-                const progress = courseProgress(course);
+
+            <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={() => setLibraryFilter("all")}
+                className={
+                  libraryFilter === "all"
+                    ? "whitespace-nowrap rounded-full bg-electric-blue px-3.5 py-2 text-xs font-black text-black"
+                    : "whitespace-nowrap rounded-full border border-white/[0.075] bg-[#020b0a] px-3.5 py-2 text-xs font-bold text-white/55 hover:border-electric-blue/35 hover:text-white"
+                }
+              >
+                All courses · {activeCourses.length}
+              </button>
+              {ecosystems.map((ecosystem) => {
+                const count = activeCourses.filter((course) => asEcosystemId(course.ecosystem_id) === ecosystem.id).length;
                 return (
                   <button
-                    key={course.module_id}
+                    key={ecosystem.id}
                     type="button"
-                    onClick={() => onOpenCourse(course)}
-                    className="rounded-xl border border-white/[0.075] bg-[#020b0a] p-4 text-left transition hover:border-electric-blue/35 hover:bg-electric-blue/[0.035]"
+                    onClick={() => setLibraryFilter(ecosystem.id)}
+                    className={
+                      libraryFilter === ecosystem.id
+                        ? "whitespace-nowrap rounded-full bg-electric-blue px-3.5 py-2 text-xs font-black text-black"
+                        : "whitespace-nowrap rounded-full border border-white/[0.075] bg-[#020b0a] px-3.5 py-2 text-xs font-bold text-white/55 hover:border-electric-blue/35 hover:text-white"
+                    }
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="rounded-md bg-electric-blue/10 px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-electric-blue">{ecosystem.label}</span>
-                      <span className="text-xs text-white/40">{progress.completed}/{progress.total} complete</span>
-                    </div>
-                    <h3 className="mt-3 line-clamp-2 text-base font-black leading-5 text-white">{course.module.title}</h3>
-                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/48">{course.topic || course.module.outcome}</p>
+                    {ecosystem.label} · {count}
                   </button>
                 );
               })}
             </div>
+
+            {visibleCourses.length > 0 ? (
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                {visibleCourses.map((course) => {
+                  const ecosystem = ecosystemById(asEcosystemId(course.ecosystem_id) ?? "zcash");
+                  const progress = courseProgress(course);
+                  const generatedCount = course.module.lessons.length;
+                  const generatedPercent = Math.min(100, Math.round((generatedCount / TOTAL_LEARNING_MODULES) * 100));
+                  const isFullyGenerated = generatedCount >= TOTAL_LEARNING_MODULES;
+                  return (
+                    <article
+                      key={course.module_id}
+                      className="rounded-2xl border border-white/[0.075] bg-[#020b0a] p-4 transition hover:border-electric-blue/35 hover:bg-electric-blue/[0.025]"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span className="rounded-md bg-electric-blue/10 px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-electric-blue">
+                          {ecosystem.label}
+                        </span>
+                        <span className={isFullyGenerated ? "text-xs font-bold text-green-300" : "text-xs font-bold text-yellow-300"}>
+                          {isFullyGenerated ? "Course ready" : `${generatedCount}/${TOTAL_LEARNING_MODULES} modules ready`}
+                        </span>
+                      </div>
+                      <h3 className="mt-3 line-clamp-2 text-lg font-black leading-6 text-white">{course.module.title}</h3>
+                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/50">{course.topic || course.module.outcome}</p>
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-center justify-between text-xs text-white/42">
+                          <span>{progress.completed}/{progress.total} checkpoints passed</span>
+                          <span>{generatedPercent}% generated</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+                          <div className="h-full rounded-full bg-electric-blue" style={{ width: `${generatedPercent}%` }} />
+                        </div>
+                      </div>
+                      <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-xs text-white/38">Last activity · {relativeActivityTime(course.updated_at)}</span>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onOpenCourse(course)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-electric-blue px-3 py-2 text-xs font-black text-black shadow-[0_0_18px_rgba(0,240,255,0.16)]"
+                          >
+                            Open <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onArchiveCourse(course)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-xs font-bold text-white/62 hover:border-electric-blue/35 hover:text-white"
+                          >
+                            <Archive className="h-3.5 w-3.5" aria-hidden="true" /> Archive
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteCourse(course)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/15 bg-red-400/[0.035] px-3 py-2 text-xs font-bold text-red-200/75 hover:border-red-300/30 hover:text-red-100"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mt-5 rounded-xl border border-white/[0.07] bg-[#020b0a] p-5 text-sm text-white/50">
+                No saved courses in this learning path yet. Choose {ecosystemById(libraryFilter === "all" ? selectedEcosystem.id : libraryFilter).label} below to generate one.
+              </div>
+            )}
           </section>
         ) : null}
 
         <div className="mt-12 grid w-full gap-6 md:grid-cols-2 xl:grid-cols-4">
           {ecosystems.map((ecosystem) => {
-            const count = courseLibrary.filter((course) => asEcosystemId(course.ecosystem_id) === ecosystem.id).length;
+            const count = activeCourses.filter((course) => asEcosystemId(course.ecosystem_id) === ecosystem.id).length;
             return (
               <button
                 key={ecosystem.id}

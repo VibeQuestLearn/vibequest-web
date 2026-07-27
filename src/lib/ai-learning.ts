@@ -132,6 +132,7 @@ export type TutorMessageDto = {
 export type LearningSessionRecord = {
   module_id: string;
   user_id: string;
+  status: string;
   provider: string;
   email: string | null;
   name: string | null;
@@ -181,6 +182,13 @@ export type SaveLearningSessionRequest = {
 
 export type SaveLearningSessionResponse = {
   session: LearningSessionRecord | null;
+  persistence: PersistenceStatus;
+};
+
+export type LearningSessionMutationResponse = {
+  module_id: string;
+  archived: boolean;
+  deleted: boolean;
   persistence: PersistenceStatus;
 };
 
@@ -356,6 +364,25 @@ export async function loadLearningSessions(): Promise<LearningSessionsResponse> 
   });
 
   return parseJsonResponse<LearningSessionsResponse>(response);
+}
+
+export async function archiveLearningSession(moduleId: string): Promise<LearningSessionMutationResponse> {
+  const response = await fetch(`/api/core/ai/learning/sessions/${encodeURIComponent(moduleId)}/archive`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  });
+
+  return parseJsonResponse<LearningSessionMutationResponse>(response);
+}
+
+export async function deleteLearningSession(moduleId: string): Promise<LearningSessionMutationResponse> {
+  const response = await fetch(`/api/core/ai/learning/sessions/${encodeURIComponent(moduleId)}`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+  });
+
+  return parseJsonResponse<LearningSessionMutationResponse>(response);
 }
 
 export async function saveLearningSession(
