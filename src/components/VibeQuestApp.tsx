@@ -25,7 +25,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getSession } from "next-auth/react";
 
 import {
@@ -423,35 +423,6 @@ export function VibeQuestApp({
       .catch((error) => setReviewState({ status: "local-only", data: null, exportData: null, error: error instanceof Error ? error.message : "Review data failed to load." }));
   }, [account, activeTab]);
 
-  useEffect(() => {
-    if (!account || courseLibrary.length === 0) return;
-
-    if (requestedCourseId) {
-      const requestedCourseIsActiveGeneration =
-        moduleState?.id === requestedCourseId || generationRunRef.current === requestedCourseId;
-      if (requestedCourseIsActiveGeneration) {
-        setLearnScreenMode("module");
-        return;
-      }
-
-      const requested = courseLibrary.find((course) => course.module_id === requestedCourseId);
-      if (requested) {
-        applySessionRecord(requested, { openModule: true, lessonId: requestedLessonId });
-      } else if (libraryState !== "loading") {
-        setSyncWarning("That course could not be found for this Google account. Choose a saved course or generate a new one.");
-        setRequestedCourseId(null);
-        setRequestedLessonId(null);
-        setLearnScreenMode("select");
-        replaceAppPath("/learn");
-      }
-      return;
-    }
-
-    if (!moduleState && activeTab !== "landing") {
-      applySessionRecord(courseLibrary[0], { openModule: activeTab !== "learn" });
-    }
-  }, [account, activeTab, courseLibrary, libraryState, moduleState, requestedCourseId, requestedLessonId]);
-
   function logLearningEvent(
     eventType: string,
     payload: { moduleId?: string; lessonId?: string; ecosystemId?: string; courseTitle?: string; metadata?: Record<string, string> } = {},
@@ -494,7 +465,7 @@ export function VibeQuestApp({
     scrollLearningViewToTop();
   }
 
-  function moduleStateFromRecord(record: LearningSessionRecord): ModuleState {
+  const moduleStateFromRecord = useCallback((record: LearningSessionRecord): ModuleState => {
     const ecosystem = ecosystemById(asEcosystemId(record.ecosystem_id) ?? "zcash");
     const intents = record.learning_intents.length > 0 ? record.learning_intents : parseIntents(record.learner_goal);
     return {
@@ -513,12 +484,12 @@ export function VibeQuestApp({
       generationStatus: record.module.lessons.length >= TOTAL_LEARNING_MODULES ? "complete" : "ready",
       totalLessons: TOTAL_LEARNING_MODULES,
     };
-  }
+  }, []);
 
-  function applySessionRecord(
+  const applySessionRecord = useCallback((
     record: LearningSessionRecord,
     options: { openModule?: boolean; lessonId?: string | null } = {},
-  ) {
+  ) => {
     const nextModuleState = moduleStateFromRecord(record);
     const ecosystem = nextModuleState.ecosystem;
     const intents = nextModuleState.intents;
@@ -550,7 +521,36 @@ export function VibeQuestApp({
     setActiveLessonIndex(nextLessonIndex < 0 ? 0 : nextLessonIndex);
     setAnswers(record.checkpoint_answers ?? {});
     setTutorMessages(record.tutor_messages.map(tutorMessageFromDto));
-  }
+  }, [moduleStateFromRecord]);
+
+  useEffect(() => {
+    if (!account || courseLibrary.length === 0) return;
+
+    if (requestedCourseId) {
+      const requestedCourseIsActiveGeneration =
+        moduleState?.id === requestedCourseId || generationRunRef.current === requestedCourseId;
+      if (requestedCourseIsActiveGeneration) {
+        setLearnScreenMode("module");
+        return;
+      }
+
+      const requested = courseLibrary.find((course) => course.module_id === requestedCourseId);
+      if (requested) {
+        applySessionRecord(requested, { openModule: true, lessonId: requestedLessonId });
+      } else if (libraryState !== "loading") {
+        setSyncWarning("That course could not be found for this Google account. Choose a saved course or generate a new one.");
+        setRequestedCourseId(null);
+        setRequestedLessonId(null);
+        setLearnScreenMode("select");
+        replaceAppPath("/learn");
+      }
+      return;
+    }
+
+    if (!moduleState && activeTab !== "landing") {
+      applySessionRecord(courseLibrary[0], { openModule: activeTab !== "learn" });
+    }
+  }, [account, activeTab, applySessionRecord, courseLibrary, libraryState, moduleState, requestedCourseId, requestedLessonId]);
 
   function chooseEcosystem(next: EcosystemOption) {
     setEcosystemId(next.id);
