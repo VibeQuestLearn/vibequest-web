@@ -29,6 +29,25 @@ export type LearningQualityScoreDto = {
   passed: boolean;
 };
 
+export type LearningModuleValidationStateDto = {
+  source_grounding: boolean;
+  technical_depth: boolean;
+  placeholder_free: boolean;
+  repetition_check: boolean;
+  checkpoint_quality: boolean;
+  ecosystem_alignment: boolean;
+  passed: boolean;
+};
+
+export type LearningModuleGenerationStateDto = {
+  lesson_index: number;
+  lesson_id?: string | null;
+  status: "queued" | "generating" | "ready" | "failed" | "validated" | string;
+  validation: LearningModuleValidationStateDto;
+  error?: string | null;
+  updated_at: string;
+};
+
 export type LearningOptionDto = {
   label: string;
   feedback: string;
@@ -113,6 +132,7 @@ export type GenerateLearningLessonResponse = {
   resources: LearningResourceDto[];
   lesson: LearningLessonDto;
   lesson_index: number;
+  module_status: LearningModuleGenerationStateDto;
   warning: string | null;
 };
 
@@ -138,6 +158,7 @@ export type LearningSessionRecord = {
   name: string | null;
   source: QuestSource;
   module: LearningModuleDto;
+  module_statuses: LearningModuleGenerationStateDto[];
   ecosystem_id: EcosystemId | string | null;
   topic: string | null;
   learning_profile: string | null;
@@ -167,6 +188,7 @@ export type SaveLearningSessionRequest = {
   module_id: string;
   source: QuestSource;
   module: LearningModuleDto;
+  module_statuses: LearningModuleGenerationStateDto[];
   ecosystem_id: EcosystemId;
   topic: string;
   learning_profile: string;
@@ -189,6 +211,59 @@ export type LearningSessionMutationResponse = {
   module_id: string;
   archived: boolean;
   deleted: boolean;
+  persistence: PersistenceStatus;
+};
+
+export type LearningEventRequest = {
+  event_type: string;
+  module_id?: string;
+  lesson_id?: string;
+  ecosystem_id?: string;
+  course_title?: string;
+  metadata?: Record<string, string>;
+};
+
+export type LearningEventRecord = {
+  event_id: string;
+  event_type: string;
+  module_id?: string | null;
+  lesson_id?: string | null;
+  ecosystem_id?: string | null;
+  course_title?: string | null;
+  metadata: Record<string, string>;
+  created_at: string;
+};
+
+export type LearningMetricsSummary = {
+  total_events: number;
+  courses_generated: number;
+  modules_opened: number;
+  checkpoints_attempted: number;
+  checkpoints_passed: number;
+  courses_completed: number;
+  tutor_used: number;
+  generation_failures: number;
+  by_event: Record<string, number>;
+  by_ecosystem: Record<string, number>;
+};
+
+export type LearningMetricsResponse = {
+  summary: LearningMetricsSummary;
+  recent_events: LearningEventRecord[];
+  persistence: PersistenceStatus;
+};
+
+export type LearningSessionExportResponse = {
+  session: LearningSessionRecord | null;
+  markdown: string;
+  json: unknown;
+  persistence: PersistenceStatus;
+};
+
+export type LearningAdminReviewResponse = {
+  sessions: LearningSessionRecord[];
+  metrics: LearningMetricsSummary;
+  recent_events: LearningEventRecord[];
   persistence: PersistenceStatus;
 };
 
@@ -383,6 +458,40 @@ export async function deleteLearningSession(moduleId: string): Promise<LearningS
   });
 
   return parseJsonResponse<LearningSessionMutationResponse>(response);
+}
+
+export async function trackLearningEvent(request: LearningEventRequest): Promise<PersistenceStatus> {
+  const response = await fetch("/api/core/ai/learning/events", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  const parsed = await parseJsonResponse<{ saved: boolean; persistence: PersistenceStatus }>(response);
+  return parsed.persistence;
+}
+
+export async function loadLearningMetrics(): Promise<LearningMetricsResponse> {
+  const response = await fetch("/api/core/ai/learning/events", {
+    method: "GET",
+    headers: { accept: "application/json" },
+  });
+  return parseJsonResponse<LearningMetricsResponse>(response);
+}
+
+export async function exportLearningSession(moduleId: string): Promise<LearningSessionExportResponse> {
+  const response = await fetch(`/api/core/ai/learning/sessions/${encodeURIComponent(moduleId)}/export`, {
+    method: "GET",
+    headers: { accept: "application/json" },
+  });
+  return parseJsonResponse<LearningSessionExportResponse>(response);
+}
+
+export async function loadLearningAdminReview(): Promise<LearningAdminReviewResponse> {
+  const response = await fetch("/api/core/ai/learning/admin/review", {
+    method: "GET",
+    headers: { accept: "application/json" },
+  });
+  return parseJsonResponse<LearningAdminReviewResponse>(response);
 }
 
 export async function saveLearningSession(
