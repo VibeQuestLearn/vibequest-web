@@ -5,13 +5,13 @@ import {
   Code2,
   Database,
   LockKeyhole,
-  ShieldCheck,
 } from "lucide-react";
 
 import {
   AccountControl,
   type AccountSummary,
 } from "@/components/AccountControl";
+import { VibeQuestLogoMark } from "@/components/VibeQuestBrand";
 import { CurriculumWorkspace } from "@/components/CurriculumWorkspace";
 import {
   RUNNER_VERSION,
@@ -49,11 +49,9 @@ export function LearningShell({
       <header className="border-b border-black/10 bg-white">
         <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#f4b728] text-black">
-              <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-            </div>
+            <VibeQuestLogoMark />
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold">VibeQuestLearn</p>
+              <p className="truncate text-sm font-bold">VibeQuest</p>
               <p className="truncate text-xs text-black/50">
                 Catalog v{catalog?.schema_version ?? 3}
               </p>
