@@ -32,6 +32,7 @@ import {
   AccountControl,
   type AccountSummary,
 } from "@/components/AccountControl";
+import { VibeQuestBrand } from "@/components/VibeQuestBrand";
 import {
   archiveLearningSession,
   askAndSaveLearningTutor,
@@ -378,7 +379,7 @@ export function VibeQuestApp({
       try {
         const response = await loadLearningSessions();
         if (cancelled) return;
-        setCourseLibrary(response.sessions);
+        setCourseLibrary(response.sessions.map(cleanLearningSessionRecord));
         setLibraryState(response.persistence.saved ? "saved" : "local-only");
         setSyncState(response.persistence.saved ? "saved" : "local-only");
         if (response.persistence.warning) {
@@ -387,7 +388,7 @@ export function VibeQuestApp({
         if (response.sessions.length === 0) {
           const fallback = await loadLearningSession().catch(() => null);
           if (cancelled || !fallback?.session) return;
-          setCourseLibrary([fallback.session]);
+          setCourseLibrary([cleanLearningSessionRecord(fallback.session)]);
           setLibraryState(fallback.persistence.saved ? "saved" : "local-only");
           setSyncState(fallback.persistence.saved ? "saved" : "local-only");
         }
@@ -468,6 +469,7 @@ export function VibeQuestApp({
   const moduleStateFromRecord = useCallback((record: LearningSessionRecord): ModuleState => {
     const ecosystem = ecosystemById(asEcosystemId(record.ecosystem_id) ?? "zcash");
     const intents = record.learning_intents.length > 0 ? record.learning_intents : parseIntents(record.learner_goal);
+    const learningModule = cleanLearningModule(record.module);
     return {
       id: record.module_id,
       source: record.source,
@@ -479,9 +481,9 @@ export function VibeQuestApp({
       intents,
       interests: record.selected_interests,
       learnerGoal: record.learner_goal,
-      module: record.module,
-      moduleStatuses: normalizeModuleStatuses(record.module, record.module_statuses, TOTAL_LEARNING_MODULES),
-      generationStatus: record.module.lessons.length >= TOTAL_LEARNING_MODULES ? "complete" : "ready",
+      module: learningModule,
+      moduleStatuses: normalizeModuleStatuses(learningModule, record.module_statuses, TOTAL_LEARNING_MODULES),
+      generationStatus: learningModule.lessons.length >= TOTAL_LEARNING_MODULES ? "complete" : "ready",
       totalLessons: TOTAL_LEARNING_MODULES,
     };
   }, []);
@@ -1186,12 +1188,7 @@ export function VibeQuestApp({
         <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#030b0a]/96 backdrop-blur-md">
           <div className="mx-auto flex h-[70px] items-center justify-between gap-4 px-6">
             <button type="button" onClick={() => navigateToTab("landing")} className="flex min-w-0 items-center gap-3 text-left">
-              <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-                <span className="absolute top-1 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue shadow-[0_0_18px_rgba(0,240,255,0.28)]" />
-                <span className="absolute top-3 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/85" />
-                <span className="absolute top-5 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/65" />
-              </span>
-              <span className="block truncate text-[22px] font-black tracking-[-0.03em] text-white">VibeQuest</span>
+              <VibeQuestBrand />
             </button>
             <AccountControl account={account} authConfigured={authConfigured} />
           </div>
@@ -1213,12 +1210,7 @@ export function VibeQuestApp({
               onClick={() => navigateToTab("landing")}
               className="flex min-w-0 items-center gap-3 text-left"
             >
-              <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-                <span className="absolute top-1 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue shadow-[0_0_18px_rgba(0,240,255,0.28)]" />
-                <span className="absolute top-3 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/85" />
-                <span className="absolute top-5 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/65" />
-              </span>
-              <span className="block truncate text-[22px] font-black tracking-[-0.03em] text-white">VibeQuest</span>
+              <VibeQuestBrand />
             </button>
 
             <nav className="hidden items-center gap-8 md:flex" aria-label="VibeQuest workspace">
@@ -1380,12 +1372,7 @@ function ProtectedShell({
       <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#030b0a]/96 backdrop-blur-md">
         <div className="mx-auto flex h-[70px] items-center justify-between gap-4 px-6">
           <button type="button" onClick={onLogo} className="flex min-w-0 items-center gap-3 text-left">
-            <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-              <span className="absolute top-1 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue shadow-[0_0_18px_rgba(0,240,255,0.28)]" />
-              <span className="absolute top-3 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/85" />
-              <span className="absolute top-5 h-3.5 w-5 rotate-45 rounded-[2px] bg-electric-blue/65" />
-            </span>
-            <span className="block truncate text-[22px] font-black tracking-[-0.03em] text-white">VibeQuest</span>
+            <VibeQuestBrand />
           </button>
           <AccountControl account={account} authConfigured={authConfigured} />
         </div>
@@ -1481,12 +1468,7 @@ function LandingView({
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-[#06100f]/90 backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-5 sm:px-8">
           <button type="button" onClick={onEnter} className="group flex items-center gap-3 text-left">
-            <span className="flex h-7 w-7 items-center justify-center bg-electric-blue text-black shadow-[0_0_18px_rgba(0,240,255,0.35)] transition-transform group-hover:translate-x-0.5">
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <span className="font-mono text-[11px] font-black uppercase tracking-[-0.02em] text-white">
-              VibeQuest
-            </span>
+            <VibeQuestBrand />
           </button>
 
           <nav className="hidden items-center gap-12 font-mono text-[9px] font-bold uppercase tracking-[0.34em] text-white/55 md:flex" aria-label="Landing sections">
@@ -4019,6 +4001,30 @@ function createCourseId(): string {
   return `course-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function cleanCourseTitle(title: string): string {
+  let cleaned = title.trim();
+  cleaned = cleaned.replace(/^vibequest\s*[:\-—]\s*/i, "");
+  for (const ecosystem of ["Stacks", "Zcash", "CKB", "Fiber", "CKB/Fiber", "Web3 + Blockchain", "Web3 + Blockchain Basics"]) {
+    const escaped = ecosystem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    cleaned = cleaned.replace(new RegExp(`^(${escaped}):\\s*\\1(?=\\s|:|[-—]|$)`, "i"), "$1");
+  }
+  return cleaned.trim() || "Learning Track";
+}
+
+function cleanLearningModule(module: LearningModuleDto): LearningModuleDto {
+  return {
+    ...module,
+    title: cleanCourseTitle(module.title),
+  };
+}
+
+function cleanLearningSessionRecord(record: LearningSessionRecord): LearningSessionRecord {
+  return {
+    ...record,
+    module: cleanLearningModule(record.module),
+  };
+}
+
 function priorLearningLessonsForRequest(lessons: LearningLessonDto[]) {
   return lessons.slice(0, 4).map((lesson) => ({
     title: lesson.title,
@@ -4037,7 +4043,7 @@ function lessonCodeLens(explanation: string) {
 
 function moduleFromGeneratedLesson(response: Awaited<ReturnType<typeof generateLearningLesson>>): LearningModuleDto {
   return {
-    title: response.module_title,
+    title: cleanCourseTitle(response.module_title),
     learner_profile: response.learner_profile,
     outcome: response.outcome,
     lessons: [response.lesson],
@@ -4165,7 +4171,8 @@ function lessonOrder(lessonId: string): number {
 }
 
 function upsertCourse(courses: LearningSessionRecord[], course: LearningSessionRecord): LearningSessionRecord[] {
-  return [course, ...courses.filter((item) => item.module_id !== course.module_id)]
+  const cleanedCourse = cleanLearningSessionRecord(course);
+  return [cleanedCourse, ...courses.filter((item) => item.module_id !== cleanedCourse.module_id)]
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
 }
 
