@@ -48,7 +48,7 @@ export function LearningShell({
   return (
     <div className="min-h-screen bg-[#f5f6f7] text-[#17191d]">
       <header className="border-b border-black/10 bg-white">
-        <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-2 px-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <VibeQuestLogoMark />
             <div className="min-w-0">
@@ -59,7 +59,7 @@ export function LearningShell({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <PwaInstallButton />
             <AccountControl account={account} authConfigured={authConfigured} />
           </div>
