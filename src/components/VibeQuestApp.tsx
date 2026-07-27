@@ -1187,7 +1187,7 @@ export function VibeQuestApp({
     return (
       <div className="min-h-screen overflow-x-hidden bg-[#030d0b] font-sans text-on-surface">
         <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#030b0a]/96 backdrop-blur-md">
-          <div className="mx-auto flex h-[70px] items-center justify-between gap-4 px-6">
+          <div className="mx-auto flex h-[64px] items-center justify-between gap-2 px-3 sm:h-[70px] sm:gap-4 sm:px-6">
             <button type="button" onClick={() => navigateToTab("landing")} className="flex min-w-0 items-center gap-3 text-left">
               <VibeQuestBrand />
             </button>
@@ -1208,7 +1208,7 @@ export function VibeQuestApp({
     <div className="min-h-screen overflow-x-hidden bg-[#030d0b] font-sans text-on-surface">
       {!immersiveLearnFlow ? (
         <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#030b0a]/96 backdrop-blur-md">
-          <div className="mx-auto grid h-[70px] max-w-none grid-cols-[1fr_auto_1fr] items-center gap-4 px-6">
+          <div className="mx-auto grid h-[64px] max-w-none grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 sm:h-[70px] sm:gap-4 sm:px-6 md:grid-cols-[1fr_auto_1fr]">
             <button
               type="button"
               onClick={() => navigateToTab("landing")}
@@ -1234,13 +1234,13 @@ export function VibeQuestApp({
               ))}
             </nav>
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-2 sm:gap-3">
               <PwaInstallButton />
               <AccountControl account={account} authConfigured={authConfigured} showIdentity={activeTab === "dashboard"} />
             </div>
           </div>
 
-          <div className="flex gap-1 overflow-x-auto border-t border-white/[0.06] bg-[#030b0a]/80 px-4 py-2 md:hidden">
+          <div className="flex gap-2 overflow-x-auto border-t border-white/[0.06] bg-[#030b0a]/86 px-3 py-2.5 md:hidden">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -1248,8 +1248,8 @@ export function VibeQuestApp({
                 onClick={() => navigateToTab(tab.id)}
                 className={
                   activeTab === tab.id
-                    ? "whitespace-nowrap rounded-md bg-electric-blue/10 px-3 py-1.5 text-xs font-medium text-electric-blue"
-                    : "whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium text-white/55 hover:bg-white/5 hover:text-white"
+                    ? "whitespace-nowrap rounded-lg bg-electric-blue/12 px-3.5 py-2 text-xs font-black text-electric-blue"
+                    : "whitespace-nowrap rounded-lg border border-white/[0.04] px-3.5 py-2 text-xs font-bold text-white/58 hover:bg-white/5 hover:text-white"
                 }
               >
                 {tab.label}
@@ -1375,7 +1375,7 @@ function ProtectedShell({
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#030d0b] font-sans text-on-surface">
       <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#030b0a]/96 backdrop-blur-md">
-        <div className="mx-auto flex h-[70px] items-center justify-between gap-4 px-6">
+        <div className="mx-auto flex h-[64px] items-center justify-between gap-2 px-3 sm:h-[70px] sm:gap-4 sm:px-6">
           <button type="button" onClick={onLogo} className="flex min-w-0 items-center gap-3 text-left">
             <VibeQuestBrand />
           </button>
@@ -1471,7 +1471,7 @@ function LandingView({
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#07100f] font-sans text-white selection:bg-electric-blue/30">
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-[#06100f]/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-5 sm:px-8">
+        <div className="mx-auto flex h-[66px] max-w-[1440px] items-center justify-between gap-2 px-3 sm:h-[72px] sm:px-8">
           <button type="button" onClick={onEnter} className="group flex items-center gap-3 text-left">
             <VibeQuestBrand />
           </button>
@@ -1482,16 +1482,17 @@ function LandingView({
             <a className="transition hover:text-electric-blue" href="#quests">Quests</a>
           </nav>
 
-          <div className="flex items-center justify-end gap-2 sm:gap-3">
+          <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
             <PwaInstallButton />
             {account ? <AccountControl account={account} authConfigured={authConfigured} showIdentity /> : null}
             <button
               type="button"
               onClick={onEnter}
               title={account ? "Open your workbench" : "Open the workbench and sign in when ready"}
-              className="inline-flex h-9 items-center justify-center gap-2 bg-electric-blue px-4 font-mono text-[9px] font-black uppercase tracking-[0.22em] text-black shadow-[0_0_24px_rgba(0,240,255,0.18)] transition hover:brightness-110"
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 bg-electric-blue px-3 font-mono text-[9px] font-black uppercase tracking-[0.16em] text-black shadow-[0_0_24px_rgba(0,240,255,0.18)] transition hover:brightness-110 sm:gap-2 sm:px-4 sm:tracking-[0.22em]"
             >
-              Open Workbench
+              <span className="hidden sm:inline">Open Workbench</span>
+              <span className="sm:hidden">Open</span>
               <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           </div>
@@ -2430,8 +2431,8 @@ function LearningSelectView({
   }
 
   return (
-    <main className="relative min-h-[calc(100vh-70px)] bg-[#03100e] px-6 text-white">
-      <section className="mx-auto flex min-h-[calc(100vh-70px)] max-w-[1140px] flex-col items-center justify-center pb-24 pt-14">
+    <main className="relative min-h-[calc(100vh-64px)] bg-[#03100e] px-4 text-white sm:min-h-[calc(100vh-70px)] sm:px-6">
+      <section className="mx-auto flex min-h-[calc(100vh-64px)] max-w-[1140px] flex-col items-center justify-center pb-20 pt-10 sm:min-h-[calc(100vh-70px)] sm:pb-24 sm:pt-14">
         <div className="text-center">
           <div className="mx-auto mb-7 flex h-[58px] w-[58px] items-center justify-center rounded-2xl border border-electric-blue/10 bg-electric-blue/[0.035] shadow-[0_0_40px_rgba(0,240,255,0.05)]">
             <GraduationCap className="h-8 w-8 text-electric-blue" strokeWidth={2.2} aria-hidden="true" />
@@ -2571,7 +2572,7 @@ function LearningSelectView({
           </section>
         ) : null}
 
-        <div className="mt-12 grid w-full gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-9 grid w-full gap-4 sm:mt-12 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
           {ecosystems.map((ecosystem) => {
             const count = activeCourses.filter((course) => asEcosystemId(course.ecosystem_id) === ecosystem.id).length;
             return (
@@ -2960,7 +2961,7 @@ function GeneratedModuleView({
   return (
     <main className="min-h-screen bg-[#03100e] text-white lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
       <aside className="border-b border-white/[0.07] bg-[#061410] lg:min-h-screen lg:border-b-0 lg:border-r">
-        <div className="px-4 py-5">
+        <div className="px-4 py-4 sm:py-5">
           <button
             type="button"
             onClick={onBackToSelect}
@@ -2971,10 +2972,15 @@ function GeneratedModuleView({
           <p className="line-clamp-2 font-mono text-[10px] font-black uppercase leading-4 tracking-[0.14em] text-electric-blue">
             {moduleState.ecosystem.label} · {moduleState.topic}
           </p>
-          <h2 className="mt-3 text-base font-black text-white">Course Pathway</h2>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-black text-white">Course Pathway</h2>
+            <span className="rounded-full border border-electric-blue/20 bg-electric-blue/10 px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.12em] text-electric-blue lg:hidden">
+              Swipe modules
+            </span>
+          </div>
         </div>
 
-        <nav className="space-y-3 px-3 pb-6" aria-label="Module pathway">
+        <nav className="flex gap-3 overflow-x-auto px-3 pb-5 [scrollbar-width:none] lg:block lg:space-y-3 lg:overflow-visible lg:pb-6" aria-label="Module pathway">
           {learningModule.lessons.map((lesson, index) => {
             const active = index === activeLessonIndex;
             const passed = lessonPassed(lesson);
@@ -2993,10 +2999,10 @@ function GeneratedModuleView({
                 disabled={locked}
                 className={
                   active
-                    ? "grid min-h-[82px] w-full grid-cols-[30px_minmax(0,1fr)_20px] gap-3 rounded-lg border border-electric-blue/60 bg-electric-blue/10 px-4 py-4 text-left shadow-[0_0_24px_rgba(0,240,255,0.08)]"
+                    ? "grid min-h-[82px] w-[78vw] min-w-[252px] max-w-[320px] shrink-0 lg:w-full lg:min-w-0 lg:max-w-none grid-cols-[30px_minmax(0,1fr)_20px] gap-3 rounded-lg border border-electric-blue/60 bg-electric-blue/10 px-4 py-4 text-left shadow-[0_0_24px_rgba(0,240,255,0.08)]"
                     : locked
-                      ? "grid min-h-[82px] w-full grid-cols-[30px_minmax(0,1fr)_20px] gap-3 rounded-lg border border-transparent bg-[#06110e]/45 px-4 py-4 text-left opacity-35"
-                      : "grid min-h-[82px] w-full grid-cols-[30px_minmax(0,1fr)_20px] gap-3 rounded-lg border border-white/[0.055] bg-[#030b0a] px-4 py-4 text-left transition hover:border-electric-blue/25"
+                      ? "grid min-h-[82px] w-[78vw] min-w-[252px] max-w-[320px] shrink-0 lg:w-full lg:min-w-0 lg:max-w-none grid-cols-[30px_minmax(0,1fr)_20px] gap-3 rounded-lg border border-transparent bg-[#06110e]/45 px-4 py-4 text-left opacity-35"
+                      : "grid min-h-[82px] w-[78vw] min-w-[252px] max-w-[320px] shrink-0 lg:w-full lg:min-w-0 lg:max-w-none grid-cols-[30px_minmax(0,1fr)_20px] gap-3 rounded-lg border border-white/[0.055] bg-[#030b0a] px-4 py-4 text-left transition hover:border-electric-blue/25"
                 }
               >
                 <span className="font-mono text-sm font-semibold text-white/42">{String(index + 1).padStart(2, "0")}</span>
@@ -3026,15 +3032,20 @@ function GeneratedModuleView({
                     </span>
                   ) : null}
                   {active && submodules.length > 0 ? (
-                    <span className="mt-3 block space-y-2 border-t border-white/[0.07] pt-3">
-                      <span className="block font-mono text-[10px] font-black uppercase tracking-[0.14em] text-electric-blue">Submodules</span>
-                      {submodules.slice(0, 4).map((submodule) => (
-                        <span key={submodule.id} className="block rounded-md border border-white/[0.055] bg-[#020b0a] px-3 py-2">
-                          <span className="block text-xs font-black leading-4 text-white/78">{submodule.title}</span>
-                          <span className="mt-1 block text-[11px] leading-4 text-white/45">{submodule.summary}</span>
-                        </span>
-                      ))}
-                    </span>
+                    <>
+                      <span className="mt-2 block text-[11px] leading-4 text-white/45 lg:hidden">
+                        {submodules.length} focused submodule{submodules.length === 1 ? "" : "s"} inside this module.
+                      </span>
+                      <span className="mt-3 hidden space-y-2 border-t border-white/[0.07] pt-3 lg:block">
+                        <span className="block font-mono text-[10px] font-black uppercase tracking-[0.14em] text-electric-blue">Submodules</span>
+                        {submodules.slice(0, 4).map((submodule) => (
+                          <span key={submodule.id} className="block rounded-md border border-white/[0.055] bg-[#020b0a] px-3 py-2">
+                            <span className="block text-xs font-black leading-4 text-white/78">{submodule.title}</span>
+                            <span className="mt-1 block text-[11px] leading-4 text-white/45">{submodule.summary}</span>
+                          </span>
+                        ))}
+                      </span>
+                    </>
                   ) : null}
                 </span>
                 {passed ? <CheckCircle2 className="h-5 w-5 text-cyber-green" aria-hidden="true" /> : locked ? <LockKeyhole className="h-5 w-5 text-white/30" aria-hidden="true" /> : <ChevronRight className="h-5 w-5 text-electric-blue" aria-hidden="true" />}
@@ -3042,7 +3053,7 @@ function GeneratedModuleView({
             );
           })}
           {pendingLessonCount > 0 || failedStatuses.length > 0 ? (
-            <div className="rounded-lg border border-dashed border-electric-blue/25 bg-electric-blue/[0.035] px-4 py-4">
+            <div className="min-w-[252px] max-w-[320px] shrink-0 rounded-lg border border-dashed border-electric-blue/25 bg-electric-blue/[0.035] px-4 py-4 lg:max-w-none lg:shrink lg:min-w-0">
               <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-electric-blue">
                 {failedStatuses.length > 0 ? `${failedStatuses.length} module${failedStatuses.length === 1 ? "" : "s"} need retry` : `${pendingLessonCount} module${pendingLessonCount === 1 ? "" : "s"} still generating`}
               </p>
@@ -3079,10 +3090,10 @@ function GeneratedModuleView({
         </nav>
       </aside>
 
-      <section className="min-w-0 px-6 py-10 lg:px-0">
+      <section className="min-w-0 px-4 py-7 sm:px-6 sm:py-10 lg:px-0">
         <div className="mx-auto w-full max-w-[920px]">
           <article ref={lessonArticleRef} onMouseUp={captureSelection} onKeyUp={captureSelection}>
-            <h1 className="text-3xl font-black leading-tight tracking-[-0.045em] text-white md:text-[36px]">
+            <h1 className="text-2xl font-black leading-tight tracking-[-0.045em] text-white sm:text-3xl md:text-[36px]">
               {activeLesson.title}
             </h1>
             <LessonValidationBadge lesson={activeLesson} />
@@ -3115,7 +3126,7 @@ function GeneratedModuleView({
                 </button>
               </div>
             ) : null}
-            <div className="mt-6 space-y-6 text-base leading-8 text-white/68">
+            <div className="mt-6 space-y-5 text-[15px] leading-8 text-white/68 sm:space-y-6 sm:text-base">
               {paragraphs.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
@@ -3381,7 +3392,7 @@ function LessonBottomNavigation({
   questGenerationState: "idle" | "loading";
 }) {
   return (
-    <nav className="mt-6 grid gap-3 rounded-2xl border border-white/[0.07] bg-[#071410] p-4 sm:grid-cols-3" aria-label="Lesson module navigation">
+    <nav className="sticky bottom-3 z-40 mt-6 grid gap-3 rounded-2xl border border-white/[0.07] bg-[#071410]/96 p-3 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur sm:grid-cols-3 sm:p-4 lg:static" aria-label="Lesson module navigation">
       <button
         type="button"
         onClick={onPrevious}
