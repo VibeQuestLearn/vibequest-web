@@ -11,6 +11,7 @@ import {
   AccountControl,
   type AccountSummary,
 } from "@/components/AccountControl";
+import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { VibeQuestLogoMark } from "@/components/VibeQuestBrand";
 import { CurriculumWorkspace } from "@/components/CurriculumWorkspace";
 import {
@@ -58,7 +59,10 @@ export function LearningShell({
             </div>
           </div>
 
-          <AccountControl account={account} authConfigured={authConfigured} />
+          <div className="flex items-center gap-3">
+            <PwaInstallButton />
+            <AccountControl account={account} authConfigured={authConfigured} />
+          </div>
         </div>
       </header>
 
