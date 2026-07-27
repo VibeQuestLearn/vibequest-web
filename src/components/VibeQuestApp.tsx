@@ -1192,7 +1192,7 @@ export function VibeQuestApp({
               <VibeQuestBrand />
             </button>
             <div className="flex items-center justify-end gap-3">
-              <PwaInstallButton />
+              <PwaInstallButton className="shrink-0" />
               <AccountControl account={account} authConfigured={authConfigured} />
             </div>
           </div>
@@ -1235,7 +1235,7 @@ export function VibeQuestApp({
             </nav>
 
             <div className="flex justify-end gap-2 sm:gap-3">
-              <PwaInstallButton />
+              <PwaInstallButton className="shrink-0" />
               <AccountControl account={account} authConfigured={authConfigured} showIdentity={activeTab === "dashboard"} />
             </div>
           </div>
@@ -1483,13 +1483,13 @@ function LandingView({
           </nav>
 
           <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
-            <PwaInstallButton />
+            <PwaInstallButton className="shrink-0" />
             {account ? <AccountControl account={account} authConfigured={authConfigured} showIdentity /> : null}
             <button
               type="button"
               onClick={onEnter}
               title={account ? "Open your workbench" : "Open the workbench and sign in when ready"}
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 bg-electric-blue px-3 font-mono text-[9px] font-black uppercase tracking-[0.16em] text-black shadow-[0_0_24px_rgba(0,240,255,0.18)] transition hover:brightness-110 sm:gap-2 sm:px-4 sm:tracking-[0.22em]"
+              className="hidden h-9 shrink-0 items-center justify-center gap-1.5 bg-electric-blue px-3 font-mono text-[9px] font-black uppercase tracking-[0.16em] text-black shadow-[0_0_24px_rgba(0,240,255,0.18)] transition hover:brightness-110 min-[420px]:inline-flex sm:gap-2 sm:px-4 sm:tracking-[0.22em]"
             >
               <span className="hidden sm:inline">Open Workbench</span>
               <span className="sm:hidden">Open</span>
@@ -1501,7 +1501,7 @@ function LandingView({
 
       <main>
         <section
-          className="relative flex min-h-[780px] items-center justify-center overflow-hidden px-5 pt-28 text-center"
+          className="relative flex min-h-[720px] items-center justify-center overflow-hidden px-4 pb-10 pt-24 text-center sm:min-h-[780px] sm:px-5 sm:pt-28"
           style={{
             backgroundImage:
               "linear-gradient(180deg, rgba(3,10,10,0.62) 0%, rgba(3,10,10,0.84) 55%, #07100f 100%), url('/images/vibequest/protocol-network.png')",
@@ -1511,14 +1511,14 @@ function LandingView({
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,240,255,0.16),transparent_34%),linear-gradient(90deg,rgba(7,16,15,0.86),transparent_18%,transparent_82%,rgba(7,16,15,0.86))]" />
           <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center">
-            <div className="mb-9 inline-flex items-center gap-2 rounded-full border border-electric-blue/40 bg-[#061615]/80 px-4 py-1.5 shadow-[0_0_24px_rgba(0,240,255,0.12)]">
+            <div className="mb-7 inline-flex max-w-[calc(100vw-32px)] items-center gap-2 rounded-full border border-electric-blue/40 bg-[#061615]/80 px-3 py-1.5 shadow-[0_0_24px_rgba(0,240,255,0.12)] sm:mb-9 sm:px-4">
               <span className="h-1.5 w-1.5 rounded-full bg-electric-blue shadow-[0_0_12px_rgba(0,240,255,0.9)]" />
-              <span className="font-mono text-[9px] font-black uppercase tracking-[0.18em] text-electric-blue">
+              <span className="font-mono text-[9px] font-black uppercase tracking-[0.12em] text-electric-blue min-[380px]:tracking-[0.18em]">
                 System online · Protocol v3.6.1
               </span>
             </div>
 
-            <h1 className="max-w-4xl text-balance text-[42px] font-black uppercase leading-[0.95] tracking-[-0.055em] text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.75)] sm:text-6xl lg:text-[76px]">
+            <h1 className="max-w-4xl text-balance text-[36px] font-black uppercase leading-[0.96] tracking-[-0.055em] text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.75)] min-[380px]:text-[42px] sm:text-6xl lg:text-[76px]">
               The AI Workbench
               <span className="block">For</span>
               <span className="block text-electric-blue drop-shadow-[0_3px_0_rgba(0,0,0,0.95)]">
@@ -1526,15 +1526,15 @@ function LandingView({
               </span>
             </h1>
 
-            <p className="mt-7 max-w-2xl text-balance text-sm leading-7 text-white/66 sm:text-base">
+            <p className="mt-6 max-w-[340px] text-balance text-sm leading-7 text-white/70 sm:mt-7 sm:max-w-2xl sm:text-base sm:text-white/66">
               Choose the chain, generate the lesson, prove the code. Master the bleeding edge of cryptographic proofs and payment channels.
             </p>
 
-            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <div className="mt-8 flex w-full flex-col items-center justify-center gap-4 sm:w-auto sm:flex-row">
               <button
                 type="button"
                 onClick={onLearn}
-                className="inline-flex h-12 min-w-56 items-center justify-center gap-3 bg-electric-blue px-6 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-black shadow-[0_0_32px_rgba(0,240,255,0.2)] transition hover:-translate-y-0.5 hover:brightness-110"
+                className="inline-flex h-12 w-full max-w-[350px] items-center justify-center gap-3 bg-electric-blue px-6 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-black shadow-[0_0_32px_rgba(0,240,255,0.2)] transition hover:-translate-y-0.5 hover:brightness-110 sm:w-auto sm:min-w-56"
               >
                 Start Learning
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -1542,11 +1542,18 @@ function LandingView({
               <button
                 type="button"
                 onClick={onEnter}
-                className="inline-flex h-12 min-w-56 items-center justify-center gap-3 border border-white/22 bg-black/35 px-6 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-white transition hover:border-electric-blue/60 hover:text-electric-blue"
+                className="inline-flex h-12 w-full max-w-[350px] items-center justify-center gap-3 border border-white/22 bg-black/35 px-6 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-white transition hover:border-electric-blue/60 hover:text-electric-blue sm:w-auto sm:min-w-56"
               >
                 <Terminal className="h-4 w-4" aria-hidden="true" />
                 Explore Quests
               </button>
+            </div>
+
+            <div className="mt-5 w-full max-w-[350px] sm:hidden">
+              <PwaInstallButton
+                variant="full"
+                helperText="Install once, then launch VibeQuest from your home screen without browser chrome."
+              />
             </div>
 
             {!authConfigured ? (
