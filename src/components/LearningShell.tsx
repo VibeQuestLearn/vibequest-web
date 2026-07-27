@@ -60,7 +60,7 @@ export function LearningShell({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <PwaInstallButton />
+            <PwaInstallButton className="shrink-0" />
             <AccountControl account={account} authConfigured={authConfigured} />
           </div>
         </div>

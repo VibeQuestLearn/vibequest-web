@@ -11,13 +11,14 @@ type BeforeInstallPromptEvent = Event & {
 type PwaInstallButtonProps = {
   variant?: "compact" | "full";
   className?: string;
+  helperText?: string;
 };
 
 type DeviceInstallHint = "ios" | "android" | "desktop" | "generic";
 
 let serviceWorkerRegistrationStarted = false;
 
-export function PwaInstallButton({ variant = "compact", className = "" }: PwaInstallButtonProps) {
+export function PwaInstallButton({ variant = "compact", className = "", helperText }: PwaInstallButtonProps) {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [ready, setReady] = useState(false);
   const [installed, setInstalled] = useState(false);
@@ -80,8 +81,9 @@ export function PwaInstallButton({ variant = "compact", className = "" }: PwaIns
   if (installed || !ready) return null;
 
   const full = variant === "full";
-  const mobileButtonLabel = "Install";
-  const desktopButtonLabel = installPrompt ? "Install app" : deviceHint === "ios" ? "Add to Home" : "Install app";
+  const compactButtonLabel = deviceHint === "ios" ? "Add app" : "Install app";
+  const fullButtonLabel = deviceHint === "ios" ? "Add to Home Screen" : "Install VibeQuest";
+  const buttonLabel = full ? fullButtonLabel : compactButtonLabel;
 
   return (
     <div className={`relative ${className}`}>
@@ -90,11 +92,12 @@ export function PwaInstallButton({ variant = "compact", className = "" }: PwaIns
         onClick={startInstall}
         disabled={installing}
         aria-expanded={helpOpen}
+        aria-label={installPrompt ? "Install VibeQuest on this device" : "Show VibeQuest install steps for this device"}
         title={installPrompt ? "Install VibeQuest on this device" : "Show install steps for this device"}
         className={
           full
-            ? "inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-electric-blue/45 bg-electric-blue/12 px-4 text-sm font-black text-electric-blue shadow-[0_0_20px_rgba(0,240,255,0.12)] transition hover:border-electric-blue hover:bg-electric-blue/15 disabled:opacity-50"
-            : "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-electric-blue/25 bg-[#071210] px-2.5 text-[12px] font-black text-electric-blue shadow-[0_0_16px_rgba(0,240,255,0.08)] transition hover:border-electric-blue/55 hover:bg-electric-blue/10 disabled:opacity-50 sm:gap-2 sm:px-3 sm:text-sm"
+            ? "inline-flex min-h-12 w-full items-center justify-center gap-2.5 rounded-2xl border border-electric-blue/55 bg-electric-blue px-5 text-sm font-black text-black shadow-[0_0_30px_rgba(0,240,255,0.22)] transition hover:brightness-110 disabled:opacity-50 sm:w-auto sm:rounded-full sm:bg-electric-blue/12 sm:text-electric-blue sm:hover:border-electric-blue sm:hover:bg-electric-blue/15"
+            : "inline-flex min-h-10 min-w-[104px] items-center justify-center gap-1.5 rounded-full border border-electric-blue/35 bg-[#071210] px-3 text-[12px] font-black text-electric-blue shadow-[0_0_16px_rgba(0,240,255,0.08)] transition hover:border-electric-blue/65 hover:bg-electric-blue/10 disabled:opacity-50 sm:min-w-0 sm:gap-2 sm:px-3 sm:text-sm"
         }
       >
         {installing ? (
@@ -104,9 +107,10 @@ export function PwaInstallButton({ variant = "compact", className = "" }: PwaIns
         ) : (
           <Smartphone className="h-4 w-4 shrink-0" aria-hidden="true" />
         )}
-        <span className="whitespace-nowrap sm:hidden">{mobileButtonLabel}</span>
-        <span className="hidden whitespace-nowrap sm:inline">{desktopButtonLabel}</span>
+        <span className="whitespace-nowrap">{buttonLabel}</span>
       </button>
+
+      {helperText ? <p className="mt-2 text-center text-[11px] leading-5 text-white/55 sm:text-xs">{helperText}</p> : null}
 
       {helpOpen ? (
         <InstallHelpSheet
