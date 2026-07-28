@@ -49,9 +49,11 @@ import {
   saveLearningSession,
   submitRunnerSource,
   trackLearningEvent,
+  type AiProviderMetadataDto,
   type EcosystemId,
   type GenerateLearningQuestResponse,
   type LearningAdminReviewResponse,
+  type LearningEvalArtifactDto,
   type LearningLessonDto,
   type LearningMetricsResponse,
   type LearningModuleDto,
@@ -110,6 +112,8 @@ type ModuleState = {
   learnerGoal: string;
   module: LearningModuleDto;
   moduleStatuses: LearningModuleGenerationStateDto[];
+  provider: AiProviderMetadataDto | null;
+  evalArtifacts: LearningEvalArtifactDto[];
   generationStatus: CourseGenerationStatus;
   totalLessons: number;
 };
@@ -484,6 +488,8 @@ export function VibeQuestApp({
       learnerGoal: record.learner_goal,
       module: learningModule,
       moduleStatuses: normalizeModuleStatuses(learningModule, record.module_statuses, TOTAL_LEARNING_MODULES),
+      provider: latestLearningProvider(record.eval_artifacts),
+      evalArtifacts: cleanLearningEvalArtifacts(record.eval_artifacts),
       generationStatus: learningModule.lessons.length >= TOTAL_LEARNING_MODULES ? "complete" : "ready",
       totalLessons: TOTAL_LEARNING_MODULES,
     };
@@ -630,6 +636,8 @@ export function VibeQuestApp({
           first.lesson_index,
           first.module_status,
         ),
+        provider: first.provider,
+        evalArtifacts: mergeLearningEvalArtifacts([], first.eval_artifact),
         generationStatus: "generating",
         totalLessons: TOTAL_LEARNING_MODULES,
       };
@@ -680,7 +688,7 @@ export function VibeQuestApp({
           prior_lessons: priorLearningLessonsForRequest(currentState.module.lessons),
         });
         if (generationRunRef.current !== runId) return;
-        currentState = appendGeneratedLesson(currentState, response.lesson, response.warning, response.module_status);
+        currentState = appendGeneratedLesson(currentState, response.lesson, response.warning, response.module_status, response.provider, response.eval_artifact);
         setModuleState((existing) => (existing?.id === runId ? currentState : existing));
         await persistLearningState(
           currentState,
@@ -799,7 +807,7 @@ export function VibeQuestApp({
       });
       if (generationRunRef.current !== moduleState.id) return;
       const nextState = {
-        ...appendGeneratedLesson(generatingState, response.lesson, response.warning, response.module_status),
+        ...appendGeneratedLesson(generatingState, response.lesson, response.warning, response.module_status, response.provider, response.eval_artifact),
         generationStatus: generatingState.module.lessons.length + 1 >= generatingState.totalLessons ? "complete" as const : "ready" as const,
       };
       setModuleState(nextState);
@@ -846,6 +854,7 @@ export function VibeQuestApp({
         source: nextModuleState.source,
         module: nextModuleState.module,
         module_statuses: nextModuleState.moduleStatuses,
+        eval_artifacts: nextModuleState.evalArtifacts,
         ecosystem_id: nextModuleState.ecosystem.id,
         topic: nextModuleState.topic,
         learning_profile: nextModuleState.profile,
@@ -2932,6 +2941,8 @@ function GeneratedModuleView({
   const canResumeGeneration =
     pendingLessonCount > 0 &&
     (moduleState.generationStatus === "ready" || moduleState.generationStatus === "error");
+  const activeEvalArtifact = learningEvalArtifactForLesson(moduleState.evalArtifacts, activeLesson.id);
+  const activeEvalReport = learningEvalReportForLesson(moduleState.evalArtifacts, activeLesson.id);
 
   function captureSelection() {
     const selection = window.getSelection();
@@ -3103,7 +3114,12 @@ function GeneratedModuleView({
             <h1 className="text-2xl font-black leading-tight tracking-[-0.045em] text-white sm:text-3xl md:text-[36px]">
               {activeLesson.title}
             </h1>
-            <LessonValidationBadge lesson={activeLesson} />
+            <LessonValidationBadge
+              lesson={activeLesson}
+              report={activeEvalReport}
+              artifact={activeEvalArtifact}
+              provider={activeEvalArtifact?.provider ?? moduleState.provider}
+            />
             {moduleState.generationStatus === "generating" ? (
               <div className="mt-5 rounded-xl border border-electric-blue/25 bg-electric-blue/[0.045] p-4 text-sm leading-6 text-electric-blue">
                 Module 1 is ready. {pendingLessonCount > 0 ? `${pendingLessonCount} more module${pendingLessonCount === 1 ? "" : "s"} are still being generated and will appear in the pathway.` : "Final save is completing."}
@@ -3286,37 +3302,67 @@ function GeneratedModuleView({
 }
 
 
-function LessonValidationBadge({ lesson }: { lesson: LearningLessonDto }) {
-  const quality = lesson.quality_score;
-  const evidenceCount = lesson.evidence_map?.length ?? 0;
+function LessonValidationBadge({
+  lesson,
+  report,
+  artifact,
+  provider,
+}: {
+  lesson: LearningLessonDto;
+  report: LearningEvalArtifactDto["lesson_reports"][number] | null;
+  artifact: LearningEvalArtifactDto | null;
+  provider: AiProviderMetadataDto | null | undefined;
+}) {
+  const quality = report?.quality_score ?? lesson.quality_score;
+  const validation = report?.validation ?? validationStateFromLesson(lesson);
+  const sourceTitles = report?.source_titles?.filter(Boolean) ?? lesson.evidence_map?.map((evidence) => evidence.source_title).filter(Boolean) ?? [];
+  const sourceUrls = report?.source_urls?.filter(Boolean) ?? lesson.evidence_map?.map((evidence) => evidence.source_url).filter(Boolean) ?? [];
+  const warnings = artifact?.warnings?.filter(Boolean) ?? [];
   const gates = [
-    { label: "Source grounded", passed: evidenceCount > 0 && (quality?.source_coverage ?? 0) >= 75 },
-    { label: "Depth", passed: (quality?.technical_depth ?? 0) >= 75 },
-    { label: "Placeholder-free", passed: quality?.placeholder_free ?? true },
-    { label: "Repetition check", passed: true },
-    { label: "Checkpoint quality", passed: (quality?.checkpoint_quality ?? 0) >= 75 },
-    { label: "Ecosystem aligned", passed: quality?.ecosystem_alignment ?? true },
+    { label: "Source grounded", passed: validation.source_grounding },
+    { label: "Technical depth", passed: validation.technical_depth },
+    { label: "No placeholders", passed: validation.placeholder_free },
+    { label: "No repetition", passed: validation.repetition_check },
+    { label: "Checkpoint quality", passed: validation.checkpoint_quality },
+    { label: "Ecosystem aligned", passed: validation.ecosystem_alignment },
   ];
-  const passed = quality?.passed ?? gates.every((gate) => gate.passed);
+  const passed = validation.passed || Boolean(quality?.passed);
 
   return (
-    <div className={passed ? "mt-5 rounded-xl border border-cyber-green/25 bg-cyber-green/[0.045] p-4 text-sm text-cyber-green" : "mt-5 rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-4 text-sm text-warning-amber"}>
-      <div className="flex flex-wrap items-center gap-3">
+    <details className={passed ? "mt-5 rounded-xl border border-cyber-green/25 bg-cyber-green/[0.045] p-4 text-sm text-cyber-green" : "mt-5 rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-4 text-sm text-warning-amber"}>
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden">
         <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-        <span className="font-black">{passed ? "Validated lesson" : "Validation needs review"}</span>
+        <span className="font-black">{passed ? "Quality checked" : "Needs technical review"}</span>
         <span className="text-white/52">
-          {evidenceCount} source-pack evidence link{evidenceCount === 1 ? "" : "s"}
+          {sourceUrls.length} source link{sourceUrls.length === 1 ? "" : "s"}
           {quality ? ` · depth ${quality.technical_depth}% · checkpoint ${quality.checkpoint_quality}%` : ""}
         </span>
+        {provider?.model ? <span className="rounded-full border border-white/[0.08] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/42">{provider.model}</span> : null}
+      </summary>
+      <div className="mt-4 grid gap-3 border-t border-white/[0.07] pt-4 md:grid-cols-2">
+        <div className="rounded-lg border border-white/[0.06] bg-[#020b0a] p-3">
+          <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/36">Validation gates</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {gates.map((gate) => (
+              <span key={gate.label} className={gate.passed ? "rounded-full border border-cyber-green/25 bg-cyber-green/10 px-2.5 py-1 text-[11px] font-bold text-cyber-green" : "rounded-full border border-warning-amber/25 bg-warning-amber/10 px-2.5 py-1 text-[11px] font-bold text-warning-amber"}>
+                {gate.passed ? "✓" : "!"} {gate.label}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-lg border border-white/[0.06] bg-[#020b0a] p-3">
+          <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/36">Eval artifact</p>
+          <p className="mt-2 text-xs leading-5 text-white/50">
+            {artifact?.request_hash ? `Request hash ${artifact.request_hash.slice(0, 16)}…` : "Current session quality signals only."}
+            {provider?.endpoint_origin ? ` · ${provider.provider_kind} via ${provider.endpoint_origin}` : ""}
+          </p>
+          {sourceTitles.length > 0 ? (
+            <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/42">Sources: {Array.from(new Set(sourceTitles)).slice(0, 4).join(", ")}</p>
+          ) : null}
+          {warnings.length > 0 ? <p className="mt-2 text-xs leading-5 text-warning-amber">{warnings.slice(0, 2).join(" ")}</p> : null}
+        </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {gates.map((gate) => (
-          <span key={gate.label} className={gate.passed ? "rounded-full border border-cyber-green/25 bg-cyber-green/10 px-2.5 py-1 text-[11px] font-bold text-cyber-green" : "rounded-full border border-warning-amber/25 bg-warning-amber/10 px-2.5 py-1 text-[11px] font-bold text-warning-amber"}>
-            {gate.passed ? "✓" : "!"} {gate.label}
-          </span>
-        ))}
-      </div>
-    </div>
+    </details>
   );
 }
 
@@ -4172,6 +4218,8 @@ function appendGeneratedLesson(
   lesson: LearningLessonDto,
   warning: string | null,
   moduleStatus?: LearningModuleGenerationStateDto,
+  provider?: AiProviderMetadataDto | null,
+  evalArtifact?: LearningEvalArtifactDto | null,
 ): ModuleState {
   const lessonIndex = moduleStatus?.lesson_index ?? Math.max(0, lessonOrder(lesson.id) - 1);
   const lessons = [...moduleState.module.lessons.filter((item) => item.id !== lesson.id), lesson]
@@ -4185,8 +4233,75 @@ function appendGeneratedLesson(
       lessons,
     },
     moduleStatuses: setModuleStatus(moduleState.moduleStatuses, lessonIndex, status),
+    provider: provider ?? moduleState.provider,
+    evalArtifacts: mergeLearningEvalArtifacts(moduleState.evalArtifacts, evalArtifact),
     generationStatus: lessons.length >= moduleState.totalLessons ? "complete" : "generating",
   };
+}
+
+function cleanLearningEvalArtifacts(artifacts: LearningEvalArtifactDto[] | null | undefined): LearningEvalArtifactDto[] {
+  return (artifacts ?? [])
+    .map(cleanLearningEvalArtifact)
+    .filter((artifact): artifact is LearningEvalArtifactDto => Boolean(artifact))
+    .slice(-TOTAL_LEARNING_MODULES);
+}
+
+function cleanLearningEvalArtifact(artifact: LearningEvalArtifactDto | null | undefined): LearningEvalArtifactDto | null {
+  if (!artifact) return null;
+  const reports = Array.isArray(artifact.lesson_reports) ? artifact.lesson_reports : [];
+  if (reports.length === 0) return null;
+  return {
+    ...artifact,
+    learning_intents: Array.isArray(artifact.learning_intents) ? artifact.learning_intents : [],
+    module_title: cleanCourseTitle(artifact.module_title || "Learning Track"),
+    lesson_reports: reports.map((report) => ({
+      ...report,
+      title: cleanCourseTitle(report.title || "Learning Module"),
+      source_titles: Array.isArray(report.source_titles) ? report.source_titles.filter(Boolean) : [],
+      source_urls: Array.isArray(report.source_urls) ? report.source_urls.filter(Boolean) : [],
+    })),
+    warnings: Array.isArray(artifact.warnings) ? artifact.warnings.filter(Boolean) : [],
+  };
+}
+
+function latestLearningProvider(artifacts: LearningEvalArtifactDto[] | null | undefined): AiProviderMetadataDto | null {
+  const cleaned = cleanLearningEvalArtifacts(artifacts);
+  return cleaned.length > 0 ? cleaned[cleaned.length - 1].provider : null;
+}
+
+function mergeLearningEvalArtifacts(
+  existing: LearningEvalArtifactDto[],
+  next?: LearningEvalArtifactDto | null,
+): LearningEvalArtifactDto[] {
+  const cleanedExisting = cleanLearningEvalArtifacts(existing);
+  const cleanedNext = cleanLearningEvalArtifact(next);
+  if (!cleanedNext) return cleanedExisting;
+  const nextLessonIds = new Set(cleanedNext.lesson_reports.map((report) => report.lesson_id).filter(Boolean));
+  const retained = cleanedExisting.filter((artifact) =>
+    !artifact.lesson_reports.some((report) => nextLessonIds.has(report.lesson_id)),
+  );
+  return [...retained, cleanedNext].slice(-TOTAL_LEARNING_MODULES);
+}
+
+function learningEvalArtifactForLesson(
+  artifacts: LearningEvalArtifactDto[],
+  lessonId: string,
+): LearningEvalArtifactDto | null {
+  for (let index = artifacts.length - 1; index >= 0; index -= 1) {
+    const artifact = artifacts[index];
+    if (artifact.lesson_reports.some((report) => report.lesson_id === lessonId)) {
+      return artifact;
+    }
+  }
+  return null;
+}
+
+function learningEvalReportForLesson(
+  artifacts: LearningEvalArtifactDto[],
+  lessonId: string,
+): LearningEvalArtifactDto["lesson_reports"][number] | null {
+  const artifact = learningEvalArtifactForLesson(artifacts, lessonId);
+  return artifact?.lesson_reports.find((report) => report.lesson_id === lessonId) ?? null;
 }
 
 function lessonOrder(lessonId: string): number {
