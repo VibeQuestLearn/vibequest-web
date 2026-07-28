@@ -48,6 +48,42 @@ export type LearningModuleGenerationStateDto = {
   updated_at: string;
 };
 
+export type AiProviderMetadataDto = {
+  provider_kind: string;
+  model: string;
+  endpoint_origin: string;
+  reasoning_effort: string;
+  response_storage_disabled: boolean;
+  timeout_seconds: number;
+  configured: boolean;
+};
+
+export type LearningLessonEvalReportDto = {
+  lesson_id: string;
+  title: string;
+  validation: LearningModuleValidationStateDto;
+  quality_score: LearningQualityScoreDto;
+  source_titles: string[];
+  source_urls: string[];
+  warning_count: number;
+};
+
+export type LearningEvalArtifactDto = {
+  artifact_version: string;
+  ecosystem_id: string;
+  topic?: string | null;
+  learning_profile?: string | null;
+  learning_intents: string[];
+  request_hash: string;
+  provider: AiProviderMetadataDto;
+  module_title: string;
+  lesson_count: number;
+  validation: LearningModuleValidationStateDto;
+  lesson_reports: LearningLessonEvalReportDto[];
+  warnings: string[];
+  generated_at: string;
+};
+
 export type LearningOptionDto = {
   label: string;
   feedback: string;
@@ -106,7 +142,9 @@ export type GenerateLearningModuleRequest = {
 export type GenerateLearningModuleResponse = {
   module_id: string;
   source: QuestSource;
+  provider: AiProviderMetadataDto;
   module: LearningModuleDto;
+  eval_artifact: LearningEvalArtifactDto;
   warning: string | null;
   persistence: PersistenceStatus;
 };
@@ -125,6 +163,7 @@ export type GenerateLearningLessonRequest = GenerateLearningModuleRequest & {
 
 export type GenerateLearningLessonResponse = {
   source: QuestSource;
+  provider: AiProviderMetadataDto;
   module_title: string;
   learner_profile: string;
   outcome: string;
@@ -133,6 +172,7 @@ export type GenerateLearningLessonResponse = {
   lesson: LearningLessonDto;
   lesson_index: number;
   module_status: LearningModuleGenerationStateDto;
+  eval_artifact: LearningEvalArtifactDto;
   warning: string | null;
 };
 
@@ -159,6 +199,7 @@ export type LearningSessionRecord = {
   source: QuestSource;
   module: LearningModuleDto;
   module_statuses: LearningModuleGenerationStateDto[];
+  eval_artifacts: LearningEvalArtifactDto[];
   ecosystem_id: EcosystemId | string | null;
   topic: string | null;
   learning_profile: string | null;
@@ -189,6 +230,7 @@ export type SaveLearningSessionRequest = {
   source: QuestSource;
   module: LearningModuleDto;
   module_statuses: LearningModuleGenerationStateDto[];
+  eval_artifacts: LearningEvalArtifactDto[];
   ecosystem_id: EcosystemId;
   topic: string;
   learning_profile: string;
