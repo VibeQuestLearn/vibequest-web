@@ -26,6 +26,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import Image from "next/image";
 import { getSession } from "next-auth/react";
 
 import {
@@ -1435,8 +1436,6 @@ function ProtectedLoginView({ authConfigured }: { authConfigured: boolean }) {
   );
 }
 
-type TargetArchitectureLogoId = "ckb" | "fiber" | "zcash" | "stacks";
-
 function LandingView({
   account,
   authConfigured,
@@ -1450,32 +1449,40 @@ function LandingView({
 }) {
   const architectureCards = [
     {
-      logo: "ckb" as TargetArchitectureLogoId,
-      logoClass: "border-cyber-green/25 bg-cyber-green/10 text-cyber-green shadow-[0_0_30px_rgba(40,255,161,0.12)]",
+      logoSrc: "/ecosystem-logos/ckb-nervos.png",
+      logoAlt: "Nervos CKB logo",
+      logoClass: "border-cyber-green/25 bg-white shadow-[0_0_30px_rgba(40,255,161,0.12)]",
+      logoImageClass: "h-10 w-10 rounded-lg",
       title: "CKB (Nervos)",
       copy: "Master RGB++ based smart contracts, cell model architecture, and state-channel fundamentals on the Common Knowledge Base.",
       meta: "CKB retained",
       tone: "text-cyber-green",
     },
     {
-      logo: "fiber" as TargetArchitectureLogoId,
-      logoClass: "border-warning-amber/25 bg-warning-amber/10 text-warning-amber shadow-[0_0_30px_rgba(245,166,35,0.12)]",
+      logoSrc: "/ecosystem-logos/fiber.svg",
+      logoAlt: "Fiber Network logo",
+      logoClass: "border-warning-amber/25 bg-[#050909] shadow-[0_0_30px_rgba(245,166,35,0.12)]",
+      logoImageClass: "h-9 w-9",
       title: "Fiber Network",
       copy: "Build next-generation Lightning-style payment channels. Learn HTLCs, routing protocols, and multi-hop channel management.",
       meta: "Fiber retained",
       tone: "text-warning-amber",
     },
     {
-      logo: "zcash" as TargetArchitectureLogoId,
-      logoClass: "border-electric-blue/30 bg-electric-blue/10 text-electric-blue shadow-[0_0_30px_rgba(0,240,255,0.14)]",
+      logoSrc: "/ecosystem-logos/zcash.svg",
+      logoAlt: "Zcash logo",
+      logoClass: "border-electric-blue/30 bg-[#050909] shadow-[0_0_30px_rgba(0,240,255,0.14)]",
+      logoImageClass: "h-10 w-10",
       title: "Zcash",
       copy: "Deep dive into privacy-preserving protocols. Implement zk-SNARKs, shielded transactions, and zero-knowledge proofs.",
       meta: "Zcash active",
       tone: "text-electric-blue",
     },
     {
-      logo: "stacks" as TargetArchitectureLogoId,
-      logoClass: "border-electric-blue/30 bg-electric-blue/10 text-electric-blue shadow-[0_0_30px_rgba(0,240,255,0.14)]",
+      logoSrc: "/ecosystem-logos/stacks.svg",
+      logoAlt: "Stacks logo",
+      logoClass: "border-electric-blue/30 bg-white shadow-[0_0_30px_rgba(0,240,255,0.14)]",
+      logoImageClass: "h-9 w-9",
       title: "Stacks",
       copy: "Learn Bitcoin-secured app flows, Clarity contract basics, sBTC, BNS identity, and wallet authorization boundaries.",
       meta: "Stacks added",
@@ -1607,7 +1614,7 @@ function LandingView({
             {architectureCards.map((card) => (
               <article key={card.title} className="group border border-white/[0.055] bg-[#040b0b]/82 p-8 shadow-[0_24px_70px_rgba(0,0,0,0.28)] transition hover:-translate-y-1 hover:border-electric-blue/30 hover:bg-[#061111]">
                 <div className={`mb-7 flex h-14 w-14 items-center justify-center rounded-xl border ${card.logoClass}`}>
-                  <TargetArchitectureLogo id={card.logo} />
+                  <Image src={card.logoSrc} alt={card.logoAlt} width={56} height={56} className={`object-contain ${card.logoImageClass}`} />
                 </div>
                 <h3 className="text-lg font-black text-white">{card.title}</h3>
                 <p className="mt-5 min-h-24 text-sm leading-7 text-white/58">{card.copy}</p>
@@ -1724,50 +1731,6 @@ function LandingView({
 }
 
 
-function TargetArchitectureLogo({ id }: { id: TargetArchitectureLogoId }) {
-  if (id === "ckb") {
-    return (
-      <svg viewBox="0 0 48 48" className="h-9 w-9" aria-hidden="true">
-        <path d="M24 5.5 40 14.7v18.6L24 42.5 8 33.3V14.7L24 5.5Z" fill="currentColor" opacity="0.14" />
-        <path d="M24 5.5 40 14.7v18.6L24 42.5 8 33.3V14.7L24 5.5Z" fill="none" stroke="currentColor" strokeWidth="2.4" />
-        <path d="M17 18.5h14M17 29.5h14M17 18.5l7 11 7-11" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.3" />
-        <circle cx="17" cy="18.5" r="2.2" fill="currentColor" />
-        <circle cx="31" cy="18.5" r="2.2" fill="currentColor" />
-        <circle cx="24" cy="29.5" r="2.2" fill="currentColor" />
-      </svg>
-    );
-  }
-
-  if (id === "fiber") {
-    return (
-      <svg viewBox="0 0 48 48" className="h-9 w-9" aria-hidden="true">
-        <circle cx="24" cy="24" r="17.5" fill="currentColor" opacity="0.12" />
-        <circle cx="24" cy="24" r="17.5" fill="none" stroke="currentColor" strokeDasharray="7 5" strokeWidth="2.2" />
-        <path d="M27 8.5 15.5 25.5h8L20.5 39.5 33 21.5h-8l2-13Z" fill="currentColor" />
-        <circle cx="10.5" cy="24" r="2.5" fill="currentColor" />
-        <circle cx="37.5" cy="24" r="2.5" fill="currentColor" />
-      </svg>
-    );
-  }
-
-  if (id === "zcash") {
-    return (
-      <svg viewBox="0 0 48 48" className="h-9 w-9" aria-hidden="true">
-        <circle cx="24" cy="24" r="18" fill="currentColor" opacity="0.13" />
-        <circle cx="24" cy="24" r="18" fill="none" stroke="currentColor" strokeWidth="2.3" />
-        <path d="M16 14h16M16 34h16M18 19h13L17 29h13" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 48 48" className="h-9 w-9" aria-hidden="true">
-      <circle cx="24" cy="24" r="18" fill="currentColor" opacity="0.11" />
-      <path d="M15 13h18M15 19h18M15 29h18M15 35h18" stroke="currentColor" strokeLinecap="round" strokeWidth="4" />
-      <path d="M18 24h12" stroke="currentColor" strokeLinecap="round" strokeWidth="3" opacity="0.62" />
-    </svg>
-  );
-}
 
 function TerminalWindow({
   title,
