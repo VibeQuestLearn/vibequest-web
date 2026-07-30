@@ -225,6 +225,26 @@ const ECOSYSTEMS: EcosystemOption[] = [
       "Safe Stacks app flow: user authorization, transaction status, explorer evidence, and denial tests",
     ],
   },
+  {
+    id: "ton-stonfi",
+    label: "TON / STON.fi",
+    pathId: "ton-stonfi-integration-lab",
+    accent: "text-electric-blue border-electric-blue/40 bg-electric-blue/10",
+    detail: "STON.fi integration lab for TON swaps, Omniston widget flows, TON Connect, jetton verification, slippage, and transaction-state safety.",
+    defaultTopic: "Safe STON.fi swap integration with TON Connect, jetton checks, slippage controls, and stale quote denial tests",
+    interests: ["STON.fi SDK", "Omniston Widget", "TON Connect", "Jetton Verification", "Slippage Safety", "Transaction State"],
+    questLabel: "STON.fi integration quest",
+    suggestedTopics: [
+      "STON.fi SDK swap quote, route, and transaction flow",
+      "Omniston widget integration with TON Connect manifest handling",
+      "Jetton address verification, fake-token denial cases, and asset allowlists",
+      "Slippage, min-out, stale quotes, and user intent confirmation",
+      "Transaction lifecycle: wallet approval, pending state, success, failure, and safe completion evidence",
+      "Liquidity pool and LP position basics for builders integrating STON.fi",
+      "Referral fee configuration and transparent user-facing disclosure",
+      "STON.fi REST API usage for pool, jetton, quote, and referral-fee visibility",
+    ],
+  },
 ];
 
 const PROFILES = ["Vibecoder", "Backend dev", "Frontend dev", "Security auditor", "Product / community"];
@@ -1488,6 +1508,16 @@ function LandingView({
       meta: "Stacks added",
       tone: "text-electric-blue",
     },
+    {
+      logoSrc: "/ecosystem-logos/stonfi.svg",
+      logoAlt: "STON.fi logo",
+      logoClass: "border-electric-blue/30 bg-[#050909] shadow-[0_0_30px_rgba(0,240,255,0.14)]",
+      logoImageClass: "h-6 w-12",
+      title: "TON / STON.fi",
+      copy: "Learn STON.fi swaps, Omniston widget flows, TON Connect boundaries, jetton verification, slippage controls, and safe transaction-state handling.",
+      meta: "Integration lab",
+      tone: "text-electric-blue",
+    },
   ];
 
   return (
@@ -1610,7 +1640,7 @@ function LandingView({
             </p>
           </div>
 
-          <div className="mt-14 grid gap-8 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-14 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {architectureCards.map((card) => (
               <article key={card.title} className="group border border-white/[0.055] bg-[#040b0b]/82 p-8 shadow-[0_24px_70px_rgba(0,0,0,0.28)] transition hover:-translate-y-1 hover:border-electric-blue/30 hover:bg-[#061111]">
                 <div className={`mb-7 flex h-14 w-14 items-center justify-center rounded-xl border ${card.logoClass}`}>
@@ -1652,7 +1682,7 @@ function LandingView({
             <TerminalWindow title="ENGINE_OUTPUT.LOG" action="✦">
               <div className="p-7 font-mono text-[11px] leading-7 text-white/68 sm:text-xs">
                 <p>&gt; Initializing module synthesis...</p>
-                <p>&gt; Target: CKB / Fiber / Zcash</p>
+                <p>&gt; Target: CKB / Fiber / Zcash / Stacks / TON</p>
                 <p>&gt; Intent: Shielded checkout validation</p>
                 <p className="mt-4 text-cyber-green">[SUCCESS] Found relevant protocol specs v1.2</p>
                 <ol className="mt-3 space-y-1 text-white/72">
@@ -1673,7 +1703,7 @@ function LandingView({
 
         <section id="quests" className="border-b border-white/[0.06] bg-[#050c0c] px-5 py-10 sm:px-8">
           <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-0 text-center md:grid-cols-4">
-            <LandingStat value="4" label="Protocol targets" />
+            <LandingStat value="6" label="Learning paths" />
             <LandingStat value="5" label="AI lessons/module" />
             <LandingStat value="1" label="Reviewed Zcash runner" />
             <LandingStat value="0" label="Fake placeholders" />
@@ -1830,7 +1860,7 @@ function DashboardView({
     : latestCourse && !moduleState
       ? { label: "Resume Course", detail: "Open the most recently active saved course.", action: () => onOpenCourse(latestCourse) }
     : !moduleState
-      ? { label: "Continue Learning", detail: "Choose Basics, CKB, Fiber, Zcash, or Stacks and let Core generate the first module.", action: onLearn }
+      ? { label: "Continue Learning", detail: "Choose Basics, CKB, Fiber, Zcash, Stacks, or TON / STON.fi and let Core generate the first module.", action: onLearn }
       : !activeLessonPassed
         ? { label: "Continue Learning", detail: "Resume the active lesson and pass its checkpoint.", action: onLearn }
         : !questState
@@ -1915,7 +1945,7 @@ function DashboardView({
               Learn it, inspect it, <span className="text-electric-blue">then ship it.</span>
             </h1>
             <p className="mt-6 text-xl leading-8 text-white/58">
-              Web3 + Blockchain, CKB, Fiber, Zcash, and Stacks. One AI learning system.
+              Web3 + Blockchain, CKB, Fiber, Zcash, Stacks, and TON / STON.fi. One AI learning system.
             </p>
           </div>
           <button
@@ -1991,7 +2021,7 @@ function DashboardView({
               Open Learn <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
-          <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-3">
             {tracks.map((track) => (
               <DashboardTrackCard
                 key={track.ecosystem.id}
@@ -2603,7 +2633,7 @@ function LearningSelectView({
           </section>
         ) : null}
 
-        <div className="mt-9 grid w-full gap-4 sm:mt-12 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-9 grid w-full gap-4 sm:mt-12 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
           {ecosystems.map((ecosystem) => {
             const count = activeCourses.filter((course) => asEcosystemId(course.ecosystem_id) === ecosystem.id).length;
             return (
@@ -3700,6 +3730,7 @@ function resourceMatchesLesson(
 ) {
   const haystack = `${lesson.title} ${lesson.why_it_matters} ${lesson.explanation} ${lesson.concepts.join(" ")}`.toLowerCase();
   const resourceText = `${resource.title} ${resource.url} ${resource.reason}`.toLowerCase();
+  if (ecosystemId === "ton-stonfi") return /ston\.fi|stonfi|omniston|ton connect|jetton|slippage|quote|docs\.ston|docs\.ton/.test(resourceText);
   if (ecosystemId === "zcash") return /zcash|zip-?321|shielded|orchard|sapling|memo|viewing/.test(resourceText);
   if (ecosystemId === "fiber") return /fiber|ptlc|payment channel|invoice|nervos/.test(resourceText);
   if (ecosystemId === "ckb") return /ckb|nervos|cell|script|witness/.test(resourceText);
@@ -4276,6 +4307,7 @@ function cleanLearningEvalArtifact(artifact: LearningEvalArtifactDto | null | un
       source_urls: Array.isArray(report.source_urls) ? report.source_urls.filter(Boolean) : [],
     })),
     warnings: Array.isArray(artifact.warnings) ? artifact.warnings.filter(Boolean) : [],
+    integration_tags: Array.isArray(artifact.integration_tags) ? artifact.integration_tags.filter(Boolean).slice(0, 12) : [],
   };
 }
 
@@ -4465,7 +4497,7 @@ function ecosystemById(id: EcosystemId): EcosystemOption {
 }
 
 function asEcosystemId(value: string | null | undefined): EcosystemId | null {
-  return value === "basics" || value === "ckb" || value === "fiber" || value === "zcash" ? value : null;
+  return value === "basics" || value === "ckb" || value === "fiber" || value === "zcash" || value === "stacks" || value === "ton-stonfi" ? value : null;
 }
 
 function syncStateLabel(state: SyncState) {
@@ -4519,9 +4551,16 @@ function verifyGeneratedWorkspace(files: WorkbenchFileDto[], ecosystemId: Ecosys
   const checks = [
     { label: "workspace files returned with content", passed: files.length > 0 && files.every((file) => file.content.trim().length > 0) },
     { label: "implementation function and test path present", passed: /(verify|validate|authorize|settle|checkout|read)/.test(haystack) && /(test|spec|assert|expect|should|#\[test\])/.test(haystack) },
-    { label: "trust boundary is named", passed: /proof|signature|receipt|payment|fiber|ckb|cell|witness|zcash|zip-321|shielded|viewing/.test(haystack) },
-    { label: "denial or failure path present", passed: /block|reject|unauthorized|unpaid|forbid|deny|invalid|error|false|mismatch|wrong network|unsafe/.test(haystack) },
+    { label: "trust boundary is named", passed: /proof|signature|receipt|payment|fiber|ckb|cell|witness|zcash|zip-321|shielded|viewing|stacks|clarity|ston\.fi|stonfi|ton connect|jetton|slippage|minout|min-out|quote|route/.test(haystack) },
+    { label: "denial or failure path present", passed: /block|reject|unauthorized|unpaid|forbid|deny|invalid|error|false|mismatch|wrong network|unsafe|stale/.test(haystack) },
   ];
+
+  if (ecosystemId === "ton-stonfi") {
+    checks.push(
+      { label: "TON / STON.fi integration boundary present", passed: /ston\.fi|stonfi|omniston|ton connect|jetton|swap|quote|route/.test(haystack) },
+      { label: "swap safety denial behavior present", passed: /stale quote|stale|slippage|minout|min-out|fake jetton|jetton master|reject|deny/.test(haystack) },
+    );
+  }
 
   if (ecosystemId === "zcash") {
     checks.push(

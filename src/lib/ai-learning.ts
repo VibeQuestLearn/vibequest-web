@@ -1,4 +1,4 @@
-export type EcosystemId = "basics" | "ckb" | "fiber" | "zcash" | "stacks";
+export type EcosystemId = "basics" | "ckb" | "fiber" | "zcash" | "stacks" | "ton-stonfi";
 export type QuestSource = "open-ai";
 
 export type PersistenceStatus = {
@@ -81,6 +81,7 @@ export type LearningEvalArtifactDto = {
   validation: LearningModuleValidationStateDto;
   lesson_reports: LearningLessonEvalReportDto[];
   warnings: string[];
+  integration_tags?: string[];
   generated_at: string;
 };
 
