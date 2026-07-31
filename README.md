@@ -58,6 +58,21 @@ VibeQuest uses one shared learning model across ecosystems:
 
 The current grant-facing track is Zcash shielded payments. CKB, Fiber, Zcash, and future ecosystems should all use the same account, dashboard, lesson, checkpoint, tutor, and completion patterns.
 
+## Validation Artifact UX
+
+Generated courses expose Core's evaluation artifact directly inside the lesson and saved-course views. Web renders validation gates, source categories, integration tags, code-mode state, denial-test count, final-lab readiness, unsupported-claim warnings, and provider metadata without letting the browser decide whether a lesson is trustworthy. Older saved sessions still render with local quality signals when the new artifact fields are absent.
+
+## TON / STON.fi Demo Path
+
+1. Open VibeQuest and sign in.
+2. Go to Learn and select TON / STON.fi.
+3. Pick a focused swap, jetton, slippage, or TON Connect topic.
+4. Enable code mode when code examples are needed.
+5. Generate the course; module 1 opens while Core continues validating modules 2-5.
+6. Inspect the validation artifact, copy or ask about code samples, pass checkpoints, and continue to the final safe-swap lab.
+
+Grant-readiness metrics are captured through course generation, module opened, checkpoint attempted/passed, tutor used, code sample copied, generation failed/retried, and course completed events with ecosystem IDs.
+
 ## Product Architecture
 
 The product architecture is documented in [`docs/product-architecture.md`](docs/product-architecture.md). It explains the ecosystem-neutral platform contract, identity boundary, catalog model, runner boundary, and documentation rules.

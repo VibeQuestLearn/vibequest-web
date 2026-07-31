@@ -65,6 +65,8 @@ export type LearningLessonEvalReportDto = {
   quality_score: LearningQualityScoreDto;
   source_titles: string[];
   source_urls: string[];
+  source_ids?: string[];
+  source_categories?: string[];
   warning_count: number;
 };
 
@@ -82,6 +84,12 @@ export type LearningEvalArtifactDto = {
   lesson_reports: LearningLessonEvalReportDto[];
   warnings: string[];
   integration_tags?: string[];
+  source_ids?: string[];
+  source_categories?: string[];
+  code_mode_enabled?: boolean;
+  final_lab_ready?: boolean;
+  denial_tests_count?: number;
+  unsupported_claim_warnings?: string[];
   generated_at: string;
 };
 

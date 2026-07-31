@@ -1358,6 +1358,16 @@ export function VibeQuestApp({
           activeLessonPassed={activeLessonPassed}
           onResumeGeneration={() => void resumeCourseGeneration()}
           onRegenerateModule={(lessonIndex) => void regenerateModule(lessonIndex)}
+          onCodeSampleCopied={(lesson) => {
+            if (!moduleState) return;
+            logLearningEvent("code_sample_copied", {
+              moduleId: moduleState.id,
+              lessonId: lesson.id,
+              ecosystemId: moduleState.ecosystem.id,
+              courseTitle: moduleState.module.title,
+              metadata: { lesson_index: String(activeLessonIndex + 1) },
+            });
+          }}
         />
       ) : null}
       {activeTab === "workbench" ? (
@@ -2350,6 +2360,7 @@ function LearnView(props: {
   activeLessonPassed: boolean;
   onResumeGeneration: () => void;
   onRegenerateModule: (lessonIndex: number) => void;
+  onCodeSampleCopied: (lesson: LearningLessonDto) => void;
 }) {
   const learningModule = props.moduleState?.module ?? null;
   const activeLesson = learningModule?.lessons[props.activeLessonIndex] ?? null;
@@ -2382,6 +2393,7 @@ function LearnView(props: {
         onBackToSelect={props.onBackToSelect}
         onResumeGeneration={props.onResumeGeneration}
         onRegenerateModule={props.onRegenerateModule}
+        onCodeSampleCopied={props.onCodeSampleCopied}
       />
     );
   }
@@ -2562,6 +2574,9 @@ function LearningSelectView({
                   const generatedPercent = Math.min(100, Math.round((generatedCount / TOTAL_LEARNING_MODULES) * 100));
                   const isFullyGenerated = generatedCount >= TOTAL_LEARNING_MODULES && failedCount === 0;
                   const needsGenerationAction = generatedCount < TOTAL_LEARNING_MODULES || failedCount > 0;
+                  const latestArtifact = course.eval_artifacts?.[course.eval_artifacts.length - 1] ?? null;
+                  const sourceCategories = uniqueStrings(latestArtifact?.source_categories ?? []).slice(0, 3);
+                  const denialCount = latestArtifact?.denial_tests_count ?? 0;
                   return (
                     <article
                       key={course.module_id}
@@ -2586,6 +2601,25 @@ function LearningSelectView({
                           <div className="h-full rounded-full bg-electric-blue" style={{ width: `${generatedPercent}%` }} />
                         </div>
                       </div>
+                      {sourceCategories.length > 0 || denialCount > 0 || latestArtifact?.final_lab_ready ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {sourceCategories.map((category) => (
+                            <span key={category} className="rounded-full border border-electric-blue/20 bg-electric-blue/[0.06] px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-electric-blue">
+                              {category}
+                            </span>
+                          ))}
+                          {denialCount > 0 ? (
+                            <span className="rounded-full border border-warning-amber/25 bg-warning-amber/10 px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-warning-amber">
+                              {denialCount} denial checks
+                            </span>
+                          ) : null}
+                          {latestArtifact?.final_lab_ready ? (
+                            <span className="rounded-full border border-cyber-green/25 bg-cyber-green/10 px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-cyber-green">
+                              Final lab ready
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-xs text-white/38">Last activity · {relativeActivityTime(course.updated_at)}</span>
                         <div className="flex flex-wrap gap-2">
@@ -2914,6 +2948,7 @@ function GeneratedModuleView({
   onBackToSelect,
   onResumeGeneration,
   onRegenerateModule,
+  onCodeSampleCopied,
 }: {
   moduleState: ModuleState;
   activeLesson: LearningLessonDto;
@@ -2935,6 +2970,7 @@ function GeneratedModuleView({
   onBackToSelect: () => void;
   onResumeGeneration: () => void;
   onRegenerateModule: (lessonIndex: number) => void;
+  onCodeSampleCopied: (lesson: LearningLessonDto) => void;
 }) {
   const learningModule = moduleState.module;
   const [draftAnswer, setDraftAnswer] = useState<number | undefined>(selectedAnswer);
@@ -3167,7 +3203,7 @@ function GeneratedModuleView({
             />
             {moduleState.generationStatus === "generating" ? (
               <div className="mt-5 rounded-xl border border-electric-blue/25 bg-electric-blue/[0.045] p-4 text-sm leading-6 text-electric-blue">
-                Module 1 is ready. {pendingLessonCount > 0 ? `${pendingLessonCount} more module${pendingLessonCount === 1 ? "" : "s"} are still being generated and will appear in the pathway.` : "Final save is completing."}
+                The first module is ready. {pendingLessonCount > 0 ? `Core is generating, source-checking, and saving ${pendingLessonCount} more module${pendingLessonCount === 1 ? "" : "s"}. They will appear in the pathway as soon as each one passes validation.` : "Final validation save is completing."}
               </div>
             ) : moduleState.generationStatus === "error" ? (
               <div className="mt-5 flex flex-col gap-3 rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-4 text-sm leading-6 text-warning-amber sm:flex-row sm:items-center sm:justify-between">
@@ -3226,6 +3262,7 @@ function GeneratedModuleView({
                   setTutorPanelOpen(true);
                   void onAskTutor(question);
                 }}
+                onCopy={() => onCodeSampleCopied(activeLesson)}
               />
             ) : null}
           </article>
@@ -3362,7 +3399,11 @@ function LessonValidationBadge({
   const validation = report?.validation ?? validationStateFromLesson(lesson);
   const sourceTitles = report?.source_titles?.filter(Boolean) ?? lesson.evidence_map?.map((evidence) => evidence.source_title).filter(Boolean) ?? [];
   const sourceUrls = report?.source_urls?.filter(Boolean) ?? lesson.evidence_map?.map((evidence) => evidence.source_url).filter(Boolean) ?? [];
-  const warnings = artifact?.warnings?.filter(Boolean) ?? [];
+  const sourceCategories = uniqueStrings([...(artifact?.source_categories ?? []), ...(report?.source_categories ?? [])]).slice(0, 8);
+  const integrationTags = uniqueStrings(artifact?.integration_tags ?? []).slice(0, 8);
+  const unsupportedWarnings = artifact?.unsupported_claim_warnings?.filter(Boolean) ?? [];
+  const warnings = uniqueStrings([...(artifact?.warnings ?? []), ...unsupportedWarnings]).slice(0, 3);
+  const denialCount = artifact?.denial_tests_count ?? 0;
   const gates = [
     { label: "Source grounded", passed: validation.source_grounding },
     { label: "Technical depth", passed: validation.technical_depth },
@@ -3377,10 +3418,11 @@ function LessonValidationBadge({
     <details className={passed ? "mt-5 rounded-xl border border-cyber-green/25 bg-cyber-green/[0.045] p-4 text-sm text-cyber-green" : "mt-5 rounded-xl border border-warning-amber/30 bg-warning-amber/10 p-4 text-sm text-warning-amber"}>
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden">
         <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-        <span className="font-black">{passed ? "Quality checked" : "Needs technical review"}</span>
+        <span className="font-black">{passed ? "Validation passed" : "Needs technical review"}</span>
         <span className="text-white/52">
           {sourceUrls.length} source link{sourceUrls.length === 1 ? "" : "s"}
           {quality ? ` · depth ${quality.technical_depth}% · checkpoint ${quality.checkpoint_quality}%` : ""}
+          {denialCount ? ` · ${denialCount} denial checks` : ""}
         </span>
         {provider?.model ? <span className="rounded-full border border-white/[0.08] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/42">{provider.model}</span> : null}
       </summary>
@@ -3397,14 +3439,24 @@ function LessonValidationBadge({
         </div>
         <div className="rounded-lg border border-white/[0.06] bg-[#020b0a] p-3">
           <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/36">Eval artifact</p>
-          <p className="mt-2 text-xs leading-5 text-white/50">
-            {artifact?.request_hash ? `Request hash ${artifact.request_hash.slice(0, 16)}…` : "Current session quality signals only."}
-            {provider?.endpoint_origin ? ` · ${provider.provider_kind} via ${provider.endpoint_origin}` : ""}
-          </p>
-          {sourceTitles.length > 0 ? (
-            <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/42">Sources: {Array.from(new Set(sourceTitles)).slice(0, 4).join(", ")}</p>
+          <div className="mt-3 grid gap-2 text-xs leading-5 text-white/52 sm:grid-cols-2">
+            <span>{artifact?.request_hash ? `Request ${artifact.request_hash.slice(0, 16)}…` : "Session-only quality signals"}</span>
+            <span>{artifact?.code_mode_enabled ? "Code mode enabled" : "Standard lesson mode"}</span>
+            <span>{artifact?.final_lab_ready ? "Final lab ready" : "Final lab not reached"}</span>
+            <span>{provider?.endpoint_origin ? `${provider.provider_kind} source` : "Provider pending"}</span>
+          </div>
+          {sourceCategories.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {sourceCategories.map((category) => (
+                <span key={category} className="rounded-full border border-electric-blue/20 bg-electric-blue/[0.06] px-2.5 py-1 font-mono text-[10px] font-black uppercase tracking-[0.1em] text-electric-blue">
+                  {category}
+                </span>
+              ))}
+            </div>
           ) : null}
-          {warnings.length > 0 ? <p className="mt-2 text-xs leading-5 text-warning-amber">{warnings.slice(0, 2).join(" ")}</p> : null}
+          {integrationTags.length > 0 ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-white/42">Checks: {integrationTags.join(", ")}</p> : null}
+          {sourceTitles.length > 0 ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/42">Sources: {Array.from(new Set(sourceTitles)).slice(0, 4).join(", ")}</p> : null}
+          {warnings.length > 0 ? <p className="mt-2 text-xs leading-5 text-warning-amber">{warnings.join(" ")}</p> : null}
         </div>
       </div>
     </details>
@@ -3415,10 +3467,12 @@ function CodeSampleLab({
   lessonId,
   code,
   onAskTutor,
+  onCopy,
 }: {
   lessonId: string;
   code: string;
   onAskTutor: (question: string) => void;
+  onCopy: () => void;
 }) {
   const [draft, setDraft] = useState(code);
 
@@ -3428,6 +3482,7 @@ function CodeSampleLab({
 
   function copyCode() {
     void navigator.clipboard?.writeText(draft);
+    onCopy();
   }
 
   return (
@@ -4117,6 +4172,18 @@ function createCourseId(): string {
   return `course-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const value of values) {
+    const normalized = value?.trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    unique.push(normalized);
+  }
+  return unique;
+}
+
 function cleanCourseTitle(title: string): string {
   let cleaned = title.trim();
   cleaned = cleaned.replace(/^vibequest\s*[:\-—]\s*/i, "");
@@ -4138,6 +4205,7 @@ function cleanLearningSessionRecord(record: LearningSessionRecord): LearningSess
   return {
     ...record,
     module: cleanLearningModule(record.module),
+    eval_artifacts: cleanLearningEvalArtifacts(record.eval_artifacts),
   };
 }
 
@@ -4305,9 +4373,19 @@ function cleanLearningEvalArtifact(artifact: LearningEvalArtifactDto | null | un
       title: cleanCourseTitle(report.title || "Learning Module"),
       source_titles: Array.isArray(report.source_titles) ? report.source_titles.filter(Boolean) : [],
       source_urls: Array.isArray(report.source_urls) ? report.source_urls.filter(Boolean) : [],
+      source_ids: Array.isArray(report.source_ids) ? report.source_ids.filter(Boolean).slice(0, 12) : [],
+      source_categories: Array.isArray(report.source_categories) ? report.source_categories.filter(Boolean).slice(0, 10) : [],
     })),
     warnings: Array.isArray(artifact.warnings) ? artifact.warnings.filter(Boolean) : [],
     integration_tags: Array.isArray(artifact.integration_tags) ? artifact.integration_tags.filter(Boolean).slice(0, 12) : [],
+    source_ids: Array.isArray(artifact.source_ids) ? artifact.source_ids.filter(Boolean).slice(0, 16) : [],
+    source_categories: Array.isArray(artifact.source_categories) ? artifact.source_categories.filter(Boolean).slice(0, 12) : [],
+    code_mode_enabled: Boolean(artifact.code_mode_enabled),
+    final_lab_ready: Boolean(artifact.final_lab_ready),
+    denial_tests_count: Number.isFinite(artifact.denial_tests_count) ? Math.max(0, Math.round(artifact.denial_tests_count ?? 0)) : 0,
+    unsupported_claim_warnings: Array.isArray(artifact.unsupported_claim_warnings)
+      ? artifact.unsupported_claim_warnings.filter(Boolean).slice(0, 16)
+      : [],
   };
 }
 
