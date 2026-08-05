@@ -137,6 +137,34 @@ type QuestState = {
 };
 
 const TOTAL_LEARNING_MODULES = 5;
+const LEARNING_INTENT_OPTIONS = [
+  "Understand the trust boundary",
+  "Read generated verifier code",
+  "Design denial tests before shipping",
+];
+const CODE_SNIPPET_INTENT = "Include interactive code snippets";
+const GOLEM_GRANT_PROOF_TOPIC =
+  "Golem compute lab: requestor/provider execution, JS SDK task run, result validation, and failure matrix";
+const GOLEM_GRANT_PROOF_INTENTS = [
+  "Understand decentralized compute boundaries",
+  "Read generated SDK execution code",
+  "Design failure-state tests before trusting provider output",
+  CODE_SNIPPET_INTENT,
+];
+const GOLEM_GRANT_PROOF_MODULES = [
+  "Requestor/provider mental model",
+  "JS SDK task execution",
+  "Python/Ray workload path",
+  "dApp lifecycle and health checks",
+  "Final compute quest",
+];
+const GOLEM_GRANT_PROOF_STEPS = [
+  "Generate module 1 progressively",
+  "Inspect source categories and validation gates",
+  "Copy or question one code sample",
+  "Pass a checkpoint",
+  "Open the final compute quest path",
+];
 
 const ECOSYSTEMS: EcosystemOption[] = [
   {
@@ -250,11 +278,12 @@ const ECOSYSTEMS: EcosystemOption[] = [
     label: "Golem",
     pathId: "golem-compute-lab",
     accent: "text-electric-blue border-electric-blue/40 bg-electric-blue/10",
-    detail: "Decentralized compute labs for requestor/provider workflows, Yagna, JS SDK, Python/Ray, dApp deployment, and result validation.",
-    defaultTopic: "Golem decentralized compute execution with requestor/provider boundaries, JS SDK tasks, and failure-state validation",
+    detail: "A practical decentralized compute lab for requestor/provider workflows, Yagna, SDK task execution, Python/Ray paths, dApp lifecycle, and result validation.",
+    defaultTopic: GOLEM_GRANT_PROOF_TOPIC,
     interests: ["Requestor / Provider Model", "Yagna App Keys", "Golem JS SDK", "Python and Ray", "dApp Deployment", "Result Validation"],
     questLabel: "Golem compute execution quest",
     suggestedTopics: [
+      GOLEM_GRANT_PROOF_TOPIC,
       "Golem compute mental model: requestors, providers, Yagna, agreements, allocations, tasks, results, and payments",
       "Golem JS SDK task execution with provider selection, result handling, cleanup, and failure cases",
       "Python and Ray on Golem: workload splitting, supported versions, limitations, and result validation",
@@ -267,12 +296,6 @@ const ECOSYSTEMS: EcosystemOption[] = [
 
 const PROFILES = ["Vibecoder", "Backend dev", "Frontend dev", "Security auditor", "Product / community"];
 const PACES = ["Focused", "Deep dive", "Fast practical", "Audit-heavy"];
-const LEARNING_INTENT_OPTIONS = [
-  "Understand the trust boundary",
-  "Read generated verifier code",
-  "Design denial tests before shipping",
-];
-const CODE_SNIPPET_INTENT = "Include interactive code snippets";
 const TABS: { id: TabId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "learn", label: "Learn" },
@@ -1552,7 +1575,7 @@ function LandingView({
       logoClass: "border-electric-blue/30 bg-[#050909] shadow-[0_0_30px_rgba(0,240,255,0.14)]",
       logoImageClass: "h-8 w-12",
       title: "Golem",
-      copy: "Learn decentralized compute execution with requestor/provider workflows, Yagna, JS SDK tasks, Python/Ray paths, dApp deployment, and result validation.",
+      copy: "Become a confident Golem integrator by learning requestor/provider execution, Yagna, SDK task paths, Python/Ray constraints, dApp lifecycle, and result validation.",
       meta: "Compute lab",
       tone: "text-electric-blue",
     },
@@ -1617,7 +1640,7 @@ function LandingView({
             </h1>
 
             <p className="mt-6 max-w-[340px] text-balance text-sm leading-7 text-white/70 sm:mt-7 sm:max-w-2xl sm:text-base sm:text-white/66">
-              Choose the chain, generate the lesson, prove the code. Master the bleeding edge of cryptographic proofs and payment channels.
+              Choose the ecosystem, generate the lesson, inspect the code, and prove the execution boundary across protocols, payments, privacy, and decentralized compute.
             </p>
 
             <div className="mt-8 flex w-full flex-col items-center justify-center gap-4 sm:w-auto sm:flex-row">
@@ -1692,6 +1715,8 @@ function LandingView({
               </article>
             ))}
           </div>
+
+          <GolemGrantProofPanel onLearn={onLearn} />
         </section>
 
         <section id="workflow" className="border-y border-white/[0.06] bg-[#0a1514] px-5 py-24 sm:px-8 lg:py-32">
@@ -1720,7 +1745,7 @@ function LandingView({
             <TerminalWindow title="ENGINE_OUTPUT.LOG" action="✦">
               <div className="p-7 font-mono text-[11px] leading-7 text-white/68 sm:text-xs">
                 <p>&gt; Initializing module synthesis...</p>
-                <p>&gt; Target: CKB / Fiber / Zcash / Stacks / TON</p>
+                <p>&gt; Target: CKB / Fiber / Zcash / Stacks / TON / Golem</p>
                 <p>&gt; Intent: Shielded checkout validation</p>
                 <p className="mt-4 text-cyber-green">[SUCCESS] Found relevant protocol specs v1.2</p>
                 <ol className="mt-3 space-y-1 text-white/72">
@@ -1741,9 +1766,9 @@ function LandingView({
 
         <section id="quests" className="border-b border-white/[0.06] bg-[#050c0c] px-5 py-10 sm:px-8">
           <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-0 text-center md:grid-cols-4">
-            <LandingStat value="6" label="Learning paths" />
+            <LandingStat value="7" label="Learning paths" />
             <LandingStat value="5" label="AI lessons/module" />
-            <LandingStat value="1" label="Reviewed Zcash runner" />
+            <LandingStat value="1" label="Reviewed runner" />
             <LandingStat value="0" label="Fake placeholders" />
           </div>
         </section>
@@ -1843,6 +1868,40 @@ function LoopStep({ number, title, children }: { number: string; title: string; 
   );
 }
 
+function GolemGrantProofPanel({ onLearn }: { onLearn: () => void }) {
+  return (
+    <section className="mt-10 overflow-hidden rounded-3xl border border-electric-blue/18 bg-[#071410] p-6 text-left shadow-[0_0_50px_rgba(0,240,255,0.045)] sm:p-8">
+      <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <div>
+          <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-electric-blue">Golem reviewer sample</p>
+          <h3 className="mt-3 max-w-2xl text-3xl font-black tracking-[-0.055em] text-white sm:text-4xl">
+            A proof-ready decentralized compute lab, not a generic learning card.
+          </h3>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/58">
+            VibeQuest gives Golem reviewers one narrow path to inspect: requestor/provider boundaries, Yagna coordination, SDK task execution, result validation, failure cases, and a final compute quest. The normal course generator still works; this sample makes the grant evidence easy to verify.
+          </p>
+          <button
+            type="button"
+            onClick={onLearn}
+            className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-electric-blue px-5 text-sm font-black text-black shadow-[0_0_24px_rgba(0,240,255,0.16)] transition hover:brightness-110"
+          >
+            Open Golem sample setup
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {GOLEM_GRANT_PROOF_STEPS.map((step, index) => (
+            <div key={step} className="rounded-2xl border border-white/[0.07] bg-[#020b0a] p-4">
+              <p className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-electric-blue">0{index + 1}</p>
+              <p className="mt-2 text-sm font-bold leading-6 text-white/70">{step}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function LandingStat({ value, label }: { value: string; label: string }) {
   return (
     <div className="border-white/[0.07] px-4 py-4 md:border-r md:last:border-r-0">
@@ -1898,7 +1957,7 @@ function DashboardView({
     : latestCourse && !moduleState
       ? { label: "Resume Course", detail: "Open the most recently active saved course.", action: () => onOpenCourse(latestCourse) }
     : !moduleState
-      ? { label: "Continue Learning", detail: "Choose Basics, CKB, Fiber, Zcash, Stacks, or TON / STON.fi and let Core generate the first module.", action: onLearn }
+      ? { label: "Continue Learning", detail: "Choose Basics, CKB, Fiber, Zcash, Stacks, TON / STON.fi, or Golem and let Core generate the first module.", action: onLearn }
       : !activeLessonPassed
         ? { label: "Continue Learning", detail: "Resume the active lesson and pass its checkpoint.", action: onLearn }
         : !questState
@@ -2734,6 +2793,7 @@ function LearningSelectView({
           toggleIntent={toggleIntent}
           codeSnippetsEnabled={codeSnippetsEnabled}
           setCodeSnippetsEnabled={setCodeSnippetsEnabled}
+          setIntentText={setIntentText}
           generationError={generationError}
           syncWarning={syncWarning}
           onGenerate={onGenerate}
@@ -2758,6 +2818,7 @@ function SessionConfigModal({
   toggleIntent,
   codeSnippetsEnabled,
   setCodeSnippetsEnabled,
+  setIntentText,
   generationError,
   syncWarning,
   onGenerate,
@@ -2776,11 +2837,22 @@ function SessionConfigModal({
   toggleIntent: (intent: string) => void;
   codeSnippetsEnabled: boolean;
   setCodeSnippetsEnabled: (enabled: boolean) => void;
+  setIntentText: (value: string) => void;
   generationError: string | null;
   syncWarning: string | null;
   onGenerate: () => Promise<void>;
   onClose: () => void;
 }) {
+  const isGolem = ecosystem.id === "golem";
+
+  function applyGolemGrantProofPreset() {
+    setTopic(GOLEM_GRANT_PROOF_TOPIC);
+    setProfile("Backend dev");
+    setPace("Audit-heavy");
+    setCodeSnippetsEnabled(true);
+    setIntentText(GOLEM_GRANT_PROOF_INTENTS.join("\n"));
+  }
+
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-[#010807]/72 px-4 py-6 text-white backdrop-blur-[10px] sm:px-5 sm:pt-[60px]">
       <section className="w-full max-w-[760px] overflow-hidden rounded-2xl border border-white/[0.085] bg-[#071410] shadow-[0_32px_90px_rgba(0,0,0,0.55)]">
@@ -2802,6 +2874,34 @@ function SessionConfigModal({
         </header>
 
         <div className="px-8 py-8">
+          {isGolem ? (
+            <section className="mb-7 rounded-2xl border border-electric-blue/20 bg-electric-blue/[0.035] p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-electric-blue">Grant-proof sample</p>
+                  <h3 className="mt-2 text-xl font-black tracking-[-0.035em] text-white">Golem Compute Lab reviewer path</h3>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-white/52">
+                    Uses a narrow sample topic, audit-heavy profile, code mode, and failure-state intents so reviewers can inspect one serious Golem course without guessing what to generate.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={applyGolemGrantProofPreset}
+                  className="shrink-0 rounded-xl bg-electric-blue px-4 py-3 text-sm font-black text-black shadow-[0_0_24px_rgba(0,240,255,0.16)] transition hover:brightness-110"
+                >
+                  Use sample setup
+                </button>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {GOLEM_GRANT_PROOF_MODULES.map((module, index) => (
+                  <span key={module} className="rounded-full border border-white/[0.075] bg-[#020b0a] px-3 py-1.5 text-xs font-bold text-white/55">
+                    {index + 1}. {module}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <label className="grid gap-3">
             <span className="text-sm font-black text-white">Topic</span>
             <div className="grid gap-2 sm:grid-cols-2">

@@ -77,12 +77,14 @@ Grant-readiness metrics are captured through course generation, module opened, c
 
 1. Open VibeQuest and sign in.
 2. Go to Learn and select Golem.
-3. Pick a focused requestor/provider, Yagna, JS SDK, Python/Ray, dApp, or failure-state topic.
-4. Enable code mode when code examples are needed.
+3. Use the visible grant-proof sample setup or pick a focused requestor/provider, Yagna, JS SDK, Python/Ray, dApp, or failure-state topic.
+4. Enable code mode when code examples are needed; the sample setup enables it automatically.
 5. Generate the course; module 1 opens while Core continues validating modules 2-5.
 6. Inspect compute-model coverage, execution path, failure-case count, official-source categories, code samples, checkpoints, and final compute quest readiness.
 
 Grant-readiness evidence for Golem should show a generated source-grounded course, validation artifact, code-copy event, checkpoint attempt, final quest visibility, and usage metrics.
+
+The landing page and Golem session modal expose the same reviewer sample path: one narrow topic, audit-heavy profile, code mode, progressive module generation, validation-gate inspection, checkpoint proof, and final compute quest visibility.
 
 ## Product Architecture
 
