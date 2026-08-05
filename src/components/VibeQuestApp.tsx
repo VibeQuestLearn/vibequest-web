@@ -158,13 +158,6 @@ const GOLEM_GRANT_PROOF_MODULES = [
   "dApp lifecycle and health checks",
   "Final compute quest",
 ];
-const GOLEM_GRANT_PROOF_STEPS = [
-  "Generate module 1 progressively",
-  "Inspect source categories and validation gates",
-  "Copy or question one code sample",
-  "Pass a checkpoint",
-  "Open the final compute quest path",
-];
 
 const ECOSYSTEMS: EcosystemOption[] = [
   {
@@ -1716,7 +1709,6 @@ function LandingView({
             ))}
           </div>
 
-          <GolemGrantProofPanel onLearn={onLearn} />
         </section>
 
         <section id="workflow" className="border-y border-white/[0.06] bg-[#0a1514] px-5 py-24 sm:px-8 lg:py-32">
@@ -1865,40 +1857,6 @@ function LoopStep({ number, title, children }: { number: string; title: string; 
         <p className="mt-2 max-w-xl text-xs leading-6 text-white/52">{children}</p>
       </div>
     </div>
-  );
-}
-
-function GolemGrantProofPanel({ onLearn }: { onLearn: () => void }) {
-  return (
-    <section className="mt-10 overflow-hidden rounded-3xl border border-electric-blue/18 bg-[#071410] p-6 text-left shadow-[0_0_50px_rgba(0,240,255,0.045)] sm:p-8">
-      <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-        <div>
-          <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-electric-blue">Golem reviewer sample</p>
-          <h3 className="mt-3 max-w-2xl text-3xl font-black tracking-[-0.055em] text-white sm:text-4xl">
-            A proof-ready decentralized compute lab, not a generic learning card.
-          </h3>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/58">
-            VibeQuest gives Golem reviewers one narrow path to inspect: requestor/provider boundaries, Yagna coordination, SDK task execution, result validation, failure cases, and a final compute quest. The normal course generator still works; this sample makes the grant evidence easy to verify.
-          </p>
-          <button
-            type="button"
-            onClick={onLearn}
-            className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-electric-blue px-5 text-sm font-black text-black shadow-[0_0_24px_rgba(0,240,255,0.16)] transition hover:brightness-110"
-          >
-            Open Golem sample setup
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {GOLEM_GRANT_PROOF_STEPS.map((step, index) => (
-            <div key={step} className="rounded-2xl border border-white/[0.07] bg-[#020b0a] p-4">
-              <p className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-electric-blue">0{index + 1}</p>
-              <p className="mt-2 text-sm font-bold leading-6 text-white/70">{step}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 

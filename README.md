@@ -84,7 +84,7 @@ Grant-readiness metrics are captured through course generation, module opened, c
 
 Grant-readiness evidence for Golem should show a generated source-grounded course, validation artifact, code-copy event, checkpoint attempt, final quest visibility, and usage metrics.
 
-The landing page and Golem session modal expose the same reviewer sample path: one narrow topic, audit-heavy profile, code mode, progressive module generation, validation-gate inspection, checkpoint proof, and final compute quest visibility.
+The Golem session modal exposes the reviewer sample path after a learner selects Golem: one narrow topic, audit-heavy profile, code mode, progressive module generation, validation-gate inspection, checkpoint proof, and final compute quest visibility.
 
 ## Product Architecture
 
