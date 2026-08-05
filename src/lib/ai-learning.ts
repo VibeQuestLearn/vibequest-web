@@ -1,4 +1,4 @@
-export type EcosystemId = "basics" | "ckb" | "fiber" | "zcash" | "stacks" | "ton-stonfi";
+export type EcosystemId = "basics" | "ckb" | "fiber" | "zcash" | "stacks" | "ton-stonfi" | "golem";
 export type QuestSource = "open-ai";
 
 export type PersistenceStatus = {
@@ -90,6 +90,11 @@ export type LearningEvalArtifactDto = {
   final_lab_ready?: boolean;
   denial_tests_count?: number;
   unsupported_claim_warnings?: string[];
+  compute_model_coverage?: string[];
+  execution_path?: string | null;
+  task_lifecycle_covered?: boolean;
+  failure_cases_count?: number;
+  final_compute_lab_ready?: boolean;
   generated_at: string;
 };
 
