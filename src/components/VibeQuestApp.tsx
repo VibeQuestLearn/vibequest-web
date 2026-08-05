@@ -245,6 +245,24 @@ const ECOSYSTEMS: EcosystemOption[] = [
       "STON.fi REST API usage for pool, jetton, quote, and referral-fee visibility",
     ],
   },
+  {
+    id: "golem",
+    label: "Golem",
+    pathId: "golem-compute-lab",
+    accent: "text-electric-blue border-electric-blue/40 bg-electric-blue/10",
+    detail: "Decentralized compute labs for requestor/provider workflows, Yagna, JS SDK, Python/Ray, dApp deployment, and result validation.",
+    defaultTopic: "Golem decentralized compute execution with requestor/provider boundaries, JS SDK tasks, and failure-state validation",
+    interests: ["Requestor / Provider Model", "Yagna App Keys", "Golem JS SDK", "Python and Ray", "dApp Deployment", "Result Validation"],
+    questLabel: "Golem compute execution quest",
+    suggestedTopics: [
+      "Golem compute mental model: requestors, providers, Yagna, agreements, allocations, tasks, results, and payments",
+      "Golem JS SDK task execution with provider selection, result handling, cleanup, and failure cases",
+      "Python and Ray on Golem: workload splitting, supported versions, limitations, and result validation",
+      "Golem dApp deployment lifecycle: GVMI images, descriptors, services, logs, proxies, and health checks",
+      "Provider selection, budget awareness, market agreement mismatch, and cost-bound compute execution",
+      "Final Golem compute quest: requestor/provider proof map, task lifecycle, result validation, and failure matrix",
+    ],
+  },
 ];
 
 const PROFILES = ["Vibecoder", "Backend dev", "Frontend dev", "Security auditor", "Product / community"];
@@ -1526,6 +1544,16 @@ function LandingView({
       title: "TON / STON.fi",
       copy: "Learn STON.fi swaps, Omniston widget flows, TON Connect boundaries, jetton verification, slippage controls, and safe transaction-state handling.",
       meta: "Integration lab",
+      tone: "text-electric-blue",
+    },
+    {
+      logoSrc: "/ecosystem-logos/golem.svg",
+      logoAlt: "Golem Network logo",
+      logoClass: "border-electric-blue/30 bg-[#050909] shadow-[0_0_30px_rgba(0,240,255,0.14)]",
+      logoImageClass: "h-8 w-12",
+      title: "Golem",
+      copy: "Learn decentralized compute execution with requestor/provider workflows, Yagna, JS SDK tasks, Python/Ray paths, dApp deployment, and result validation.",
+      meta: "Compute lab",
       tone: "text-electric-blue",
     },
   ];
@@ -3404,6 +3432,11 @@ function LessonValidationBadge({
   const unsupportedWarnings = artifact?.unsupported_claim_warnings?.filter(Boolean) ?? [];
   const warnings = uniqueStrings([...(artifact?.warnings ?? []), ...unsupportedWarnings]).slice(0, 3);
   const denialCount = artifact?.denial_tests_count ?? 0;
+  const failureCount = artifact?.failure_cases_count ?? 0;
+  const computeCoverage = artifact?.compute_model_coverage?.filter(Boolean) ?? [];
+  const executionPath = artifact?.execution_path ?? null;
+  const taskLifecycleCovered = Boolean(artifact?.task_lifecycle_covered);
+  const finalComputeLabReady = Boolean(artifact?.final_compute_lab_ready);
   const gates = [
     { label: "Source grounded", passed: validation.source_grounding },
     { label: "Technical depth", passed: validation.technical_depth },
@@ -3423,6 +3456,7 @@ function LessonValidationBadge({
           {sourceUrls.length} source link{sourceUrls.length === 1 ? "" : "s"}
           {quality ? ` · depth ${quality.technical_depth}% · checkpoint ${quality.checkpoint_quality}%` : ""}
           {denialCount ? ` · ${denialCount} denial checks` : ""}
+          {failureCount ? ` · ${failureCount} failure cases` : ""}
         </span>
         {provider?.model ? <span className="rounded-full border border-white/[0.08] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/42">{provider.model}</span> : null}
       </summary>
@@ -3443,7 +3477,8 @@ function LessonValidationBadge({
             <span>{artifact?.request_hash ? `Request ${artifact.request_hash.slice(0, 16)}…` : "Session-only quality signals"}</span>
             <span>{artifact?.code_mode_enabled ? "Code mode enabled" : "Standard lesson mode"}</span>
             <span>{artifact?.final_lab_ready ? "Final lab ready" : "Final lab not reached"}</span>
-            <span>{provider?.endpoint_origin ? `${provider.provider_kind} source` : "Provider pending"}</span>
+            <span>{finalComputeLabReady ? "Compute quest ready" : taskLifecycleCovered ? "Task lifecycle covered" : "Lifecycle pending"}</span>
+            <span>{executionPath ? `Path ${executionPath}` : provider?.endpoint_origin ? `${provider.provider_kind} source` : "Provider pending"}</span>
           </div>
           {sourceCategories.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -3455,6 +3490,7 @@ function LessonValidationBadge({
             </div>
           ) : null}
           {integrationTags.length > 0 ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-white/42">Checks: {integrationTags.join(", ")}</p> : null}
+          {computeCoverage.length > 0 ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/42">Compute model: {computeCoverage.slice(0, 8).join(", ")}</p> : null}
           {sourceTitles.length > 0 ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/42">Sources: {Array.from(new Set(sourceTitles)).slice(0, 4).join(", ")}</p> : null}
           {warnings.length > 0 ? <p className="mt-2 text-xs leading-5 text-warning-amber">{warnings.join(" ")}</p> : null}
         </div>
@@ -3785,6 +3821,7 @@ function resourceMatchesLesson(
 ) {
   const haystack = `${lesson.title} ${lesson.why_it_matters} ${lesson.explanation} ${lesson.concepts.join(" ")}`.toLowerCase();
   const resourceText = `${resource.title} ${resource.url} ${resource.reason}`.toLowerCase();
+  if (ecosystemId === "golem") return /golem|docs\.golem|yagna|requestor|provider|ray|dapp|gvmi|task model|python|javascript|js sdk/.test(resourceText);
   if (ecosystemId === "ton-stonfi") return /ston\.fi|stonfi|omniston|ton connect|jetton|slippage|quote|docs\.ston|docs\.ton/.test(resourceText);
   if (ecosystemId === "zcash") return /zcash|zip-?321|shielded|orchard|sapling|memo|viewing/.test(resourceText);
   if (ecosystemId === "fiber") return /fiber|ptlc|payment channel|invoice|nervos/.test(resourceText);
@@ -4187,7 +4224,7 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
 function cleanCourseTitle(title: string): string {
   let cleaned = title.trim();
   cleaned = cleaned.replace(/^vibequest\s*[:\-—]\s*/i, "");
-  for (const ecosystem of ["Stacks", "Zcash", "CKB", "Fiber", "CKB/Fiber", "Web3 + Blockchain", "Web3 + Blockchain Basics"]) {
+  for (const ecosystem of ["Golem", "TON / STON.fi", "Stacks", "Zcash", "CKB", "Fiber", "CKB/Fiber", "Web3 + Blockchain", "Web3 + Blockchain Basics"]) {
     const escaped = ecosystem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     cleaned = cleaned.replace(new RegExp(`^(${escaped}):\\s*\\1(?=\\s|:|[-—]|$)`, "i"), "$1");
   }
@@ -4386,6 +4423,13 @@ function cleanLearningEvalArtifact(artifact: LearningEvalArtifactDto | null | un
     unsupported_claim_warnings: Array.isArray(artifact.unsupported_claim_warnings)
       ? artifact.unsupported_claim_warnings.filter(Boolean).slice(0, 16)
       : [],
+    compute_model_coverage: Array.isArray(artifact.compute_model_coverage)
+      ? artifact.compute_model_coverage.filter(Boolean).slice(0, 12)
+      : [],
+    execution_path: typeof artifact.execution_path === "string" && artifact.execution_path.trim() ? artifact.execution_path.trim() : null,
+    task_lifecycle_covered: Boolean(artifact.task_lifecycle_covered),
+    failure_cases_count: Number.isFinite(artifact.failure_cases_count) ? Math.max(0, Math.round(artifact.failure_cases_count ?? 0)) : 0,
+    final_compute_lab_ready: Boolean(artifact.final_compute_lab_ready),
   };
 }
 
@@ -4575,7 +4619,7 @@ function ecosystemById(id: EcosystemId): EcosystemOption {
 }
 
 function asEcosystemId(value: string | null | undefined): EcosystemId | null {
-  return value === "basics" || value === "ckb" || value === "fiber" || value === "zcash" || value === "stacks" || value === "ton-stonfi" ? value : null;
+  return value === "basics" || value === "ckb" || value === "fiber" || value === "zcash" || value === "stacks" || value === "ton-stonfi" || value === "golem" ? value : null;
 }
 
 function syncStateLabel(state: SyncState) {
@@ -4629,9 +4673,16 @@ function verifyGeneratedWorkspace(files: WorkbenchFileDto[], ecosystemId: Ecosys
   const checks = [
     { label: "workspace files returned with content", passed: files.length > 0 && files.every((file) => file.content.trim().length > 0) },
     { label: "implementation function and test path present", passed: /(verify|validate|authorize|settle|checkout|read)/.test(haystack) && /(test|spec|assert|expect|should|#\[test\])/.test(haystack) },
-    { label: "trust boundary is named", passed: /proof|signature|receipt|payment|fiber|ckb|cell|witness|zcash|zip-321|shielded|viewing|stacks|clarity|ston\.fi|stonfi|ton connect|jetton|slippage|minout|min-out|quote|route/.test(haystack) },
+    { label: "trust boundary is named", passed: /proof|signature|receipt|payment|fiber|ckb|cell|witness|zcash|zip-321|shielded|viewing|stacks|clarity|ston\.fi|stonfi|ton connect|jetton|slippage|minout|min-out|quote|route|golem|yagna|requestor|provider|task|result|agreement|allocation/.test(haystack) },
     { label: "denial or failure path present", passed: /block|reject|unauthorized|unpaid|forbid|deny|invalid|error|false|mismatch|wrong network|unsafe|stale/.test(haystack) },
   ];
+
+  if (ecosystemId === "golem") {
+    checks.push(
+      { label: "Golem compute boundary present", passed: /golem|yagna|requestor|provider|task|result|agreement|allocation/.test(haystack) },
+      { label: "compute failure behavior present", passed: /provider unavailable|timeout|missing result|corrupted result|wrong gvmi|budget exceeded|agreement mismatch|yagna disconnected|reject|deny|invalid/.test(haystack) },
+    );
+  }
 
   if (ecosystemId === "ton-stonfi") {
     checks.push(
