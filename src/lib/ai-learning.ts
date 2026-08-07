@@ -1,4 +1,4 @@
-export type EcosystemId = "basics" | "ckb" | "fiber" | "zcash" | "stacks" | "ton-stonfi" | "golem";
+export type EcosystemId = "basics" | "ckb" | "fiber" | "zcash" | "stacks" | "ton-stonfi" | "golem" | "aibtc";
 export type QuestSource = "open-ai";
 
 export type PersistenceStatus = {
@@ -95,6 +95,14 @@ export type LearningEvalArtifactDto = {
   task_lifecycle_covered?: boolean;
   failure_cases_count?: number;
   final_compute_lab_ready?: boolean;
+  agent_identity_coverage?: string[];
+  signed_action_coverage?: boolean;
+  bounty_workflow_coverage?: boolean;
+  sbtc_payment_proof_coverage?: boolean;
+  reputation_evidence_coverage?: boolean;
+  agent_failure_cases_count?: number;
+  unsafe_autonomy_warnings?: string[];
+  final_agent_lab_ready?: boolean;
   generated_at: string;
 };
 

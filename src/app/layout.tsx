@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "VibeQuest | Multi-Ecosystem AI Learning Workbench",
   description:
-    "Installable AI learning workbench for CKB, Fiber, Zcash, Stacks, and Web3 protocol fundamentals.",
+    "Installable AI learning workbench for Web3 basics, CKB, Fiber, Zcash, Stacks, TON / STON.fi, Golem, and AIBTC agent labs.",
   applicationName: "VibeQuest",
   manifest: "/manifest.webmanifest",
   icons: {

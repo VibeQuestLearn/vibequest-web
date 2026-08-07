@@ -86,6 +86,17 @@ Grant-readiness evidence for Golem should show a generated source-grounded cours
 
 The Golem session modal exposes the reviewer sample path after a learner selects Golem: one narrow topic, audit-heavy profile, code mode, progressive module generation, validation-gate inspection, checkpoint proof, and final compute quest visibility.
 
+## AIBTC Agent Lab Demo Path
+
+1. Open VibeQuest and sign in.
+2. Go to Learn and select AIBTC / Stacks Agents.
+3. Use the agent lab sample setup or pick a focused signed-action, bounty, sBTC payment-proof, x402, or reputation topic.
+4. Enable code mode when code examples are needed; the sample setup enables it automatically.
+5. Generate the course; module 1 opens while Core continues validating modules 2-5.
+6. Inspect agent identity coverage, signed-action coverage, bounty-workflow coverage, sBTC payment-proof coverage, unsafe-autonomy warnings, source categories, code samples, checkpoints, and final agent quest readiness.
+
+Grant-readiness evidence for AIBTC should show a generated source-grounded course, validation artifact, code-copy event, checkpoint attempt, final quest visibility, and usage metrics.
+
 ## Product Architecture
 
 The product architecture is documented in [`docs/product-architecture.md`](docs/product-architecture.md). It explains the ecosystem-neutral platform contract, identity boundary, catalog model, runner boundary, and documentation rules.
