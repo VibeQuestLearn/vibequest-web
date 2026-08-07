@@ -158,6 +158,21 @@ const GOLEM_GRANT_PROOF_MODULES = [
   "dApp lifecycle and health checks",
   "Final compute quest",
 ];
+const AIBTC_AGENT_LAB_TOPIC =
+  "AIBTC agent lab: signed agent actions, bounty workflow, sBTC payment proof, and reputation evidence";
+const AIBTC_AGENT_LAB_INTENTS = [
+  "Understand signed agent actions",
+  "Read generated agent workflow code",
+  "Design denial tests for unsafe wallet and payment assumptions",
+  CODE_SNIPPET_INTENT,
+];
+const AIBTC_AGENT_LAB_MODULES = [
+  "Agent identity and reputation",
+  "BTC/STX signed actions",
+  "Bounty workflow proof",
+  "sBTC payment evidence",
+  "Final agent quest",
+];
 
 const ECOSYSTEMS: EcosystemOption[] = [
   {
@@ -244,6 +259,25 @@ const ECOSYSTEMS: EcosystemOption[] = [
       "sBTC basics: Bitcoin-backed app flows, custody assumptions, deposits, withdrawals, and user trust boundaries",
       "BNS and product identity: names, ownership, app UX, and safe resolution assumptions",
       "Safe Stacks app flow: user authorization, transaction status, explorer evidence, and denial tests",
+    ],
+  },
+  {
+    id: "aibtc",
+    label: "AIBTC / Stacks Agents",
+    pathId: "aibtc-agent-lab",
+    accent: "text-electric-blue border-electric-blue/40 bg-electric-blue/10",
+    detail: "Agent-economy learning for signed AIBTC actions, bounty workflows, sBTC payment proof, x402 paid interactions, and public work reputation.",
+    defaultTopic: AIBTC_AGENT_LAB_TOPIC,
+    interests: ["AIBTC Agent Identity", "BTC/STX Signed Actions", "Bounty Workflow", "sBTC Payment Proof", "x402 Paid Interactions", "Work Reputation"],
+    questLabel: "AIBTC agent execution quest",
+    suggestedTopics: [
+      AIBTC_AGENT_LAB_TOPIC,
+      "AIBTC agent identity: public work history, BTC/STX address claims, signed actions, and reputation boundaries",
+      "Signed API actions: payload scope, BTC/STX signatures, nonce freshness, timestamp expiry, and replay denial",
+      "AIBTC bounty workflow: bounty ID, submission window, fixed reward terms, artifact proof, and reviewer state",
+      "sBTC payment proof: transfer evidence, BNTY memo binding, confirmation state, and pending-payment denial",
+      "x402 paid interactions: request intent, payment gating, user approval, and what an agent must not do automatically",
+      "Final AIBTC agent quest: signed-action validator, bounty proof map, payment evidence, reputation trail, and unsafe-autonomy denial tests",
     ],
   },
   {
@@ -1737,7 +1771,7 @@ function LandingView({
             <TerminalWindow title="ENGINE_OUTPUT.LOG" action="✦">
               <div className="p-7 font-mono text-[11px] leading-7 text-white/68 sm:text-xs">
                 <p>&gt; Initializing module synthesis...</p>
-                <p>&gt; Target: CKB / Fiber / Zcash / Stacks / TON / Golem</p>
+                <p>&gt; Target: CKB / Fiber / Zcash / Stacks / TON / Golem / AIBTC</p>
                 <p>&gt; Intent: Shielded checkout validation</p>
                 <p className="mt-4 text-cyber-green">[SUCCESS] Found relevant protocol specs v1.2</p>
                 <ol className="mt-3 space-y-1 text-white/72">
@@ -1915,7 +1949,7 @@ function DashboardView({
     : latestCourse && !moduleState
       ? { label: "Resume Course", detail: "Open the most recently active saved course.", action: () => onOpenCourse(latestCourse) }
     : !moduleState
-      ? { label: "Continue Learning", detail: "Choose Basics, CKB, Fiber, Zcash, Stacks, TON / STON.fi, or Golem and let Core generate the first module.", action: onLearn }
+      ? { label: "Continue Learning", detail: "Choose Basics, CKB, Fiber, Zcash, Stacks, TON / STON.fi, Golem, or AIBTC and let Core generate the first module.", action: onLearn }
       : !activeLessonPassed
         ? { label: "Continue Learning", detail: "Resume the active lesson and pass its checkpoint.", action: onLearn }
         : !questState
@@ -2000,7 +2034,7 @@ function DashboardView({
               Learn it, inspect it, <span className="text-electric-blue">then ship it.</span>
             </h1>
             <p className="mt-6 text-xl leading-8 text-white/58">
-              Web3 + Blockchain, CKB, Fiber, Zcash, Stacks, and TON / STON.fi. One AI learning system.
+              Web3 + Blockchain, CKB, Fiber, Zcash, Stacks, TON / STON.fi, Golem, and AIBTC. One AI learning system.
             </p>
           </div>
           <button
@@ -2802,6 +2836,7 @@ function SessionConfigModal({
   onClose: () => void;
 }) {
   const isGolem = ecosystem.id === "golem";
+  const isAibtc = ecosystem.id === "aibtc";
 
   function applyGolemGrantProofPreset() {
     setTopic(GOLEM_GRANT_PROOF_TOPIC);
@@ -2809,6 +2844,14 @@ function SessionConfigModal({
     setPace("Audit-heavy");
     setCodeSnippetsEnabled(true);
     setIntentText(GOLEM_GRANT_PROOF_INTENTS.join("\n"));
+  }
+
+  function applyAibtcAgentLabPreset() {
+    setTopic(AIBTC_AGENT_LAB_TOPIC);
+    setProfile("Backend dev");
+    setPace("Audit-heavy");
+    setCodeSnippetsEnabled(true);
+    setIntentText(AIBTC_AGENT_LAB_INTENTS.join("\n"));
   }
 
   return (
@@ -2852,6 +2895,34 @@ function SessionConfigModal({
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {GOLEM_GRANT_PROOF_MODULES.map((module, index) => (
+                  <span key={module} className="rounded-full border border-white/[0.075] bg-[#020b0a] px-3 py-1.5 text-xs font-bold text-white/55">
+                    {index + 1}. {module}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {isAibtc ? (
+            <section className="mb-7 rounded-2xl border border-electric-blue/20 bg-electric-blue/[0.035] p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-electric-blue">Agent lab sample</p>
+                  <h3 className="mt-2 text-xl font-black tracking-[-0.035em] text-white">AIBTC signed-action path</h3>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-white/52">
+                    Loads the narrow path for signed agent actions, bounty submission, sBTC payment proof, BNTY memo evidence, reputation, and unsafe-autonomy denial checks.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={applyAibtcAgentLabPreset}
+                  className="shrink-0 rounded-xl bg-electric-blue px-4 py-3 text-sm font-black text-black shadow-[0_0_24px_rgba(0,240,255,0.16)] transition hover:brightness-110"
+                >
+                  Use agent lab setup
+                </button>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {AIBTC_AGENT_LAB_MODULES.map((module, index) => (
                   <span key={module} className="rounded-full border border-white/[0.075] bg-[#020b0a] px-3 py-1.5 text-xs font-bold text-white/55">
                     {index + 1}. {module}
                   </span>
@@ -3495,6 +3566,16 @@ function LessonValidationBadge({
   const executionPath = artifact?.execution_path ?? null;
   const taskLifecycleCovered = Boolean(artifact?.task_lifecycle_covered);
   const finalComputeLabReady = Boolean(artifact?.final_compute_lab_ready);
+  const agentCoverage = artifact?.agent_identity_coverage?.filter(Boolean) ?? [];
+  const agentFailureCount = artifact?.agent_failure_cases_count ?? 0;
+  const finalAgentLabReady = Boolean(artifact?.final_agent_lab_ready);
+  const agentFlowSignals = [
+    artifact?.signed_action_coverage ? "signed actions" : null,
+    artifact?.bounty_workflow_coverage ? "bounty workflow" : null,
+    artifact?.sbtc_payment_proof_coverage ? "sBTC proof" : null,
+    artifact?.reputation_evidence_coverage ? "reputation" : null,
+  ].filter(Boolean) as string[];
+  const unsafeAutonomyWarnings = artifact?.unsafe_autonomy_warnings?.filter(Boolean) ?? [];
   const gates = [
     { label: "Source grounded", passed: validation.source_grounding },
     { label: "Technical depth", passed: validation.technical_depth },
@@ -3515,6 +3596,7 @@ function LessonValidationBadge({
           {quality ? ` · depth ${quality.technical_depth}% · checkpoint ${quality.checkpoint_quality}%` : ""}
           {denialCount ? ` · ${denialCount} denial checks` : ""}
           {failureCount ? ` · ${failureCount} failure cases` : ""}
+          {agentFailureCount ? ` · ${agentFailureCount} agent denials` : ""}
         </span>
         {provider?.model ? <span className="rounded-full border border-white/[0.08] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/42">{provider.model}</span> : null}
       </summary>
@@ -3535,7 +3617,7 @@ function LessonValidationBadge({
             <span>{artifact?.request_hash ? `Request ${artifact.request_hash.slice(0, 16)}…` : "Session-only quality signals"}</span>
             <span>{artifact?.code_mode_enabled ? "Code mode enabled" : "Standard lesson mode"}</span>
             <span>{artifact?.final_lab_ready ? "Final lab ready" : "Final lab not reached"}</span>
-            <span>{finalComputeLabReady ? "Compute quest ready" : taskLifecycleCovered ? "Task lifecycle covered" : "Lifecycle pending"}</span>
+            <span>{finalAgentLabReady ? "Agent quest ready" : finalComputeLabReady ? "Compute quest ready" : taskLifecycleCovered ? "Task lifecycle covered" : "Lifecycle pending"}</span>
             <span>{executionPath ? `Path ${executionPath}` : provider?.endpoint_origin ? `${provider.provider_kind} source` : "Provider pending"}</span>
           </div>
           {sourceCategories.length > 0 ? (
@@ -3549,8 +3631,10 @@ function LessonValidationBadge({
           ) : null}
           {integrationTags.length > 0 ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-white/42">Checks: {integrationTags.join(", ")}</p> : null}
           {computeCoverage.length > 0 ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/42">Compute model: {computeCoverage.slice(0, 8).join(", ")}</p> : null}
+          {agentCoverage.length > 0 ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/42">Agent model: {agentCoverage.slice(0, 8).join(", ")}</p> : null}
+          {agentFlowSignals.length > 0 ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/42">Agent checks: {agentFlowSignals.join(", ")}</p> : null}
           {sourceTitles.length > 0 ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/42">Sources: {Array.from(new Set(sourceTitles)).slice(0, 4).join(", ")}</p> : null}
-          {warnings.length > 0 ? <p className="mt-2 text-xs leading-5 text-warning-amber">{warnings.join(" ")}</p> : null}
+          {[...warnings, ...unsafeAutonomyWarnings].length > 0 ? <p className="mt-2 text-xs leading-5 text-warning-amber">{uniqueStrings([...warnings, ...unsafeAutonomyWarnings]).slice(0, 3).join(" ")}</p> : null}
         </div>
       </div>
     </details>
@@ -3879,6 +3963,7 @@ function resourceMatchesLesson(
 ) {
   const haystack = `${lesson.title} ${lesson.why_it_matters} ${lesson.explanation} ${lesson.concepts.join(" ")}`.toLowerCase();
   const resourceText = `${resource.title} ${resource.url} ${resource.reason}`.toLowerCase();
+  if (ecosystemId === "aibtc") return /aibtc|aibtc\.com|bounty|bounties|openapi|llms|stacks|sbtc/.test(resourceText);
   if (ecosystemId === "golem") return /golem|docs\.golem|yagna|requestor|provider|ray|dapp|gvmi|task model|python|javascript|js sdk/.test(resourceText);
   if (ecosystemId === "ton-stonfi") return /ston\.fi|stonfi|omniston|ton connect|jetton|slippage|quote|docs\.ston|docs\.ton/.test(resourceText);
   if (ecosystemId === "zcash") return /zcash|zip-?321|shielded|orchard|sapling|memo|viewing/.test(resourceText);
@@ -4282,7 +4367,7 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
 function cleanCourseTitle(title: string): string {
   let cleaned = title.trim();
   cleaned = cleaned.replace(/^vibequest\s*[:\-—]\s*/i, "");
-  for (const ecosystem of ["Golem", "TON / STON.fi", "Stacks", "Zcash", "CKB", "Fiber", "CKB/Fiber", "Web3 + Blockchain", "Web3 + Blockchain Basics"]) {
+  for (const ecosystem of ["AIBTC / Stacks Agents", "AIBTC", "Golem", "TON / STON.fi", "Stacks", "Zcash", "CKB", "Fiber", "CKB/Fiber", "Web3 + Blockchain", "Web3 + Blockchain Basics"]) {
     const escaped = ecosystem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     cleaned = cleaned.replace(new RegExp(`^(${escaped}):\\s*\\1(?=\\s|:|[-—]|$)`, "i"), "$1");
   }
@@ -4488,6 +4573,18 @@ function cleanLearningEvalArtifact(artifact: LearningEvalArtifactDto | null | un
     task_lifecycle_covered: Boolean(artifact.task_lifecycle_covered),
     failure_cases_count: Number.isFinite(artifact.failure_cases_count) ? Math.max(0, Math.round(artifact.failure_cases_count ?? 0)) : 0,
     final_compute_lab_ready: Boolean(artifact.final_compute_lab_ready),
+    agent_identity_coverage: Array.isArray(artifact.agent_identity_coverage)
+      ? artifact.agent_identity_coverage.filter(Boolean).slice(0, 12)
+      : [],
+    signed_action_coverage: Boolean(artifact.signed_action_coverage),
+    bounty_workflow_coverage: Boolean(artifact.bounty_workflow_coverage),
+    sbtc_payment_proof_coverage: Boolean(artifact.sbtc_payment_proof_coverage),
+    reputation_evidence_coverage: Boolean(artifact.reputation_evidence_coverage),
+    agent_failure_cases_count: Number.isFinite(artifact.agent_failure_cases_count) ? Math.max(0, Math.round(artifact.agent_failure_cases_count ?? 0)) : 0,
+    unsafe_autonomy_warnings: Array.isArray(artifact.unsafe_autonomy_warnings)
+      ? artifact.unsafe_autonomy_warnings.filter(Boolean).slice(0, 16)
+      : [],
+    final_agent_lab_ready: Boolean(artifact.final_agent_lab_ready),
   };
 }
 
@@ -4677,7 +4774,7 @@ function ecosystemById(id: EcosystemId): EcosystemOption {
 }
 
 function asEcosystemId(value: string | null | undefined): EcosystemId | null {
-  return value === "basics" || value === "ckb" || value === "fiber" || value === "zcash" || value === "stacks" || value === "ton-stonfi" || value === "golem" ? value : null;
+  return value === "basics" || value === "ckb" || value === "fiber" || value === "zcash" || value === "stacks" || value === "ton-stonfi" || value === "golem" || value === "aibtc" ? value : null;
 }
 
 function syncStateLabel(state: SyncState) {
@@ -4731,9 +4828,16 @@ function verifyGeneratedWorkspace(files: WorkbenchFileDto[], ecosystemId: Ecosys
   const checks = [
     { label: "workspace files returned with content", passed: files.length > 0 && files.every((file) => file.content.trim().length > 0) },
     { label: "implementation function and test path present", passed: /(verify|validate|authorize|settle|checkout|read)/.test(haystack) && /(test|spec|assert|expect|should|#\[test\])/.test(haystack) },
-    { label: "trust boundary is named", passed: /proof|signature|receipt|payment|fiber|ckb|cell|witness|zcash|zip-321|shielded|viewing|stacks|clarity|ston\.fi|stonfi|ton connect|jetton|slippage|minout|min-out|quote|route|golem|yagna|requestor|provider|task|result|agreement|allocation/.test(haystack) },
+    { label: "trust boundary is named", passed: /proof|signature|receipt|payment|fiber|ckb|cell|witness|zcash|zip-321|shielded|viewing|stacks|clarity|ston\.fi|stonfi|ton connect|jetton|slippage|minout|min-out|quote|route|golem|yagna|requestor|provider|task|result|agreement|allocation|aibtc|agent|bounty|bnty|x402|sbtc/.test(haystack) },
     { label: "denial or failure path present", passed: /block|reject|unauthorized|unpaid|forbid|deny|invalid|error|false|mismatch|wrong network|unsafe|stale/.test(haystack) },
   ];
+
+  if (ecosystemId === "aibtc") {
+    checks.push(
+      { label: "AIBTC agent boundary present", passed: /aibtc|agent|signed action|signed request|btc signature|stx signature|bounty|sbtc|bnty|x402|reputation/.test(haystack) },
+      { label: "agent denial behavior present", passed: /unsigned|wrong signer|replay|stale timestamp|invalid bounty|closed submission|pending payment|missing bnty|unconfirmed|private key|autonomous spending|reject|deny|invalid/.test(haystack) },
+    );
+  }
 
   if (ecosystemId === "golem") {
     checks.push(
