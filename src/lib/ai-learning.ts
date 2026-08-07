@@ -488,6 +488,51 @@ export type RunAibtcAgentRequest = {
   quest: QuestBlueprintDto;
 };
 
+export type PrepareAibtcBountyApplicationRequest = {
+  run_id: string;
+  module_id: string;
+  ecosystem_id: EcosystemId;
+  target_bounty_id?: string | null;
+  target_bounty_title?: string | null;
+  target_bounty_url?: string | null;
+  submitter_btc_address?: string | null;
+  content_url?: string | null;
+  message?: string | null;
+  agent_run: AibtcAgentRunResponse;
+};
+
+export type AibtcApplicationCheckDto = {
+  label: string;
+  passed: boolean;
+  detail: string;
+};
+
+export type AibtcTargetBountyDto = {
+  bounty_id?: string | null;
+  title?: string | null;
+  url?: string | null;
+};
+
+export type AibtcBountyApplicationPacketDto = {
+  packet_id: string;
+  status: string;
+  ready_for_signature: boolean;
+  ready_for_live_submit: boolean;
+  summary: string;
+  target_bounty: AibtcTargetBountyDto;
+  submitter_btc_address?: string | null;
+  content_url?: string | null;
+  message: string;
+  signed_at: string;
+  signed_message: string;
+  submit_endpoint: string;
+  request_body_template: Record<string, unknown>;
+  evidence_checklist: AibtcApplicationCheckDto[];
+  blocking_requirements: string[];
+  approval_boundary: string[];
+  artifacts: WorkbenchFileDto[];
+};
+
 export type RunnerSubmissionView = {
   submission_id: string;
   scenario_id: string;
@@ -660,6 +705,18 @@ export async function runAibtcAgent(
   });
 
   return parseJsonResponse<AibtcAgentRunResponse>(response);
+}
+
+export async function prepareAibtcBountyApplication(
+  request: PrepareAibtcBountyApplicationRequest,
+): Promise<AibtcBountyApplicationPacketDto> {
+  const response = await fetch("/api/core/ai/learning/agent/application", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  return parseJsonResponse<AibtcBountyApplicationPacketDto>(response);
 }
 
 export async function submitRunnerSource({

@@ -47,11 +47,13 @@ import {
   loadLearningMetrics,
   loadLearningSession,
   loadLearningSessions,
+  prepareAibtcBountyApplication,
   runAibtcAgent,
   saveLearningSession,
   submitRunnerSource,
   trackLearningEvent,
   type AiProviderMetadataDto,
+  type AibtcBountyApplicationPacketDto,
   type AibtcAgentRunResponse,
   type EcosystemId,
   type GenerateLearningQuestResponse,
@@ -138,6 +140,8 @@ type QuestState = {
   runnerError: string | null;
   agentRun: AibtcAgentRunResponse | null;
   agentRunError: string | null;
+  bountyApplication: AibtcBountyApplicationPacketDto | null;
+  bountyApplicationError: string | null;
 };
 
 const TOTAL_LEARNING_MODULES = 5;
@@ -378,6 +382,7 @@ export function VibeQuestApp({
   const [metricsState, setMetricsState] = useState<LearningMetricsResponse | null>(null);
   const [runnerSubmitting, setRunnerSubmitting] = useState(false);
   const [agentRunning, setAgentRunning] = useState(false);
+  const [bountyApplicationPreparing, setBountyApplicationPreparing] = useState(false);
   const generationRunRef = useRef<string | null>(null);
   const answersRef = useRef(answers);
   const tutorMessagesRef = useRef(tutorMessages);
@@ -1201,6 +1206,8 @@ export function VibeQuestApp({
         runnerError: null,
         agentRun: null,
         agentRunError: null,
+        bountyApplication: null,
+        bountyApplicationError: null,
       });
       navigateToTab("workbench");
     } catch (error) {
@@ -1266,6 +1273,49 @@ export function VibeQuestApp({
       });
     } finally {
       setAgentRunning(false);
+    }
+  }
+
+  async function prepareAibtcApplicationPacket(input: { bountyId: string; bountyTitle: string; bountyUrl: string; submitterBtcAddress: string; contentUrl: string; message: string }) {
+    if (!questState || !moduleState || moduleState.ecosystem.id !== "aibtc" || !questState.agentRun) return;
+
+    const activeQuestState = questState;
+    const activeAgentRun = questState.agentRun;
+    setBountyApplicationPreparing(true);
+    setQuestState({ ...activeQuestState, bountyApplicationError: null });
+    try {
+      const packet = await prepareAibtcBountyApplication({
+        run_id: activeQuestState.response.run_id,
+        module_id: moduleState.id,
+        ecosystem_id: "aibtc",
+        target_bounty_id: input.bountyId || null,
+        target_bounty_title: input.bountyTitle || null,
+        target_bounty_url: input.bountyUrl || null,
+        submitter_btc_address: input.submitterBtcAddress || null,
+        content_url: input.contentUrl || null,
+        message: input.message || null,
+        agent_run: activeAgentRun,
+      });
+      setQuestState({ ...activeQuestState, bountyApplication: packet, bountyApplicationError: null });
+      logLearningEvent("bounty_application_prepared", {
+        moduleId: moduleState.id,
+        lessonId: activeQuestState.response.learning_context.lesson_id,
+        ecosystemId: "aibtc",
+        courseTitle: moduleState.module.title,
+        metadata: {
+          packet_id: packet.packet_id,
+          status: packet.status,
+          bounty_id: packet.target_bounty.bounty_id ?? "missing",
+          ready_for_signature: String(packet.ready_for_signature),
+        },
+      });
+    } catch (error) {
+      setQuestState({
+        ...activeQuestState,
+        bountyApplicationError: error instanceof Error ? error.message : "AIBTC bounty application preparation failed.",
+      });
+    } finally {
+      setBountyApplicationPreparing(false);
     }
   }
 
@@ -1494,8 +1544,10 @@ export function VibeQuestApp({
           onSubmitRunner={() => void submitSelectedFileToRunner()}
           onRefreshRunner={() => void refreshRunnerSubmission()}
           onRunAgent={() => void runAibtcAutonomousAgent()}
+          onPrepareBountyApplication={(input) => void prepareAibtcApplicationPacket(input)}
           runnerSubmitting={runnerSubmitting}
           agentRunning={agentRunning}
+          bountyApplicationPreparing={bountyApplicationPreparing}
         />
       ) : null}
       {activeTab === "review" ? (
@@ -4171,8 +4223,10 @@ function WorkbenchView({
   onSubmitRunner,
   onRefreshRunner,
   onRunAgent,
+  onPrepareBountyApplication,
   runnerSubmitting,
   agentRunning,
+  bountyApplicationPreparing,
 }: {
   moduleState: ModuleState | null;
   questState: QuestState | null;
@@ -4182,9 +4236,17 @@ function WorkbenchView({
   onSubmitRunner: () => void;
   onRefreshRunner: () => void;
   onRunAgent: () => void;
+  onPrepareBountyApplication: (input: { bountyId: string; bountyTitle: string; bountyUrl: string; submitterBtcAddress: string; contentUrl: string; message: string }) => void;
   runnerSubmitting: boolean;
   agentRunning: boolean;
+  bountyApplicationPreparing: boolean;
 }) {
+  const [bountyId, setBountyId] = useState("");
+  const [bountyTitle, setBountyTitle] = useState("");
+  const [bountyUrl, setBountyUrl] = useState("");
+  const [submitterBtcAddress, setSubmitterBtcAddress] = useState("");
+  const [contentUrl, setContentUrl] = useState("");
+  const [applicationMessage, setApplicationMessage] = useState("");
   if (!questState) {
     return (
       <main className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-5xl items-center justify-center p-4 md:p-8">
@@ -4213,6 +4275,7 @@ function WorkbenchView({
   );
   const agentCanRun = moduleState?.ecosystem.id === "aibtc";
   const agentRun = questState.agentRun;
+  const bountyApplication = questState.bountyApplication;
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-[1440px] flex-col gap-6 p-4 md:p-8">
@@ -4332,6 +4395,65 @@ function WorkbenchView({
                         ))}
                       </div>
                     </div>
+                  </div>
+                ) : null}
+                {agentRun ? (
+                  <div className="grid gap-3 rounded-lg border border-electric-blue/15 bg-electric-blue/[0.035] p-3">
+                    <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-electric-blue">Bounty application packet</p>
+                    <input value={bountyId} onChange={(event) => setBountyId(event.target.value)} placeholder="AIBTC bounty ID" className="min-h-10 rounded-lg border border-white/[0.08] bg-[#020b0a] px-3 text-xs text-white outline-none focus:border-electric-blue/45" />
+                    <input value={bountyTitle} onChange={(event) => setBountyTitle(event.target.value)} placeholder="Bounty title (optional)" className="min-h-10 rounded-lg border border-white/[0.08] bg-[#020b0a] px-3 text-xs text-white outline-none focus:border-electric-blue/45" />
+                    <input value={bountyUrl} onChange={(event) => setBountyUrl(event.target.value)} placeholder="Bounty URL (optional)" className="min-h-10 rounded-lg border border-white/[0.08] bg-[#020b0a] px-3 text-xs text-white outline-none focus:border-electric-blue/45" />
+                    <input value={submitterBtcAddress} onChange={(event) => setSubmitterBtcAddress(event.target.value)} placeholder="Registered agent BTC address" className="min-h-10 rounded-lg border border-white/[0.08] bg-[#020b0a] px-3 text-xs text-white outline-none focus:border-electric-blue/45" />
+                    <input value={contentUrl} onChange={(event) => setContentUrl(event.target.value)} placeholder="Public contentUrl / gist / repo / report" className="min-h-10 rounded-lg border border-white/[0.08] bg-[#020b0a] px-3 text-xs text-white outline-none focus:border-electric-blue/45" />
+                    <textarea value={applicationMessage} onChange={(event) => setApplicationMessage(event.target.value)} placeholder="Submission message (optional; Core can generate one from the run)" rows={3} className="rounded-lg border border-white/[0.08] bg-[#020b0a] px-3 py-2 text-xs leading-5 text-white outline-none focus:border-electric-blue/45" />
+                    <button
+                      type="button"
+                      onClick={() => onPrepareBountyApplication({ bountyId, bountyTitle, bountyUrl, submitterBtcAddress, contentUrl, message: applicationMessage })}
+                      disabled={bountyApplicationPreparing}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-cyber-green px-4 text-xs font-black uppercase tracking-wider text-black disabled:brightness-50"
+                    >
+                      {bountyApplicationPreparing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                      Prepare application packet
+                    </button>
+                    {bountyApplication ? (
+                      <div className="grid gap-3 rounded-lg border border-white/[0.07] bg-[#020b0a] p-3 text-xs leading-6 text-on-surface-variant">
+                        <p><span className="font-bold text-white">Packet:</span> {bountyApplication.packet_id}</p>
+                        <p><span className="font-bold text-white">Status:</span> <span className={bountyApplication.ready_for_signature ? "text-cyber-green" : bountyApplication.status === "blocked" ? "text-red-300" : "text-warning-amber"}>{bountyApplication.status}</span></p>
+                        <p><span className="font-bold text-white">Endpoint:</span> {bountyApplication.submit_endpoint}</p>
+                        <div>
+                          <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Signed message</p>
+                          <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap rounded border border-white/[0.06] bg-[#071410] p-2 font-mono text-[10px] leading-5 text-white/62">{bountyApplication.signed_message}</pre>
+                        </div>
+                        {bountyApplication.blocking_requirements.length > 0 ? (
+                          <div>
+                            <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-warning-amber">Remaining blockers</p>
+                            <div className="mt-2 grid gap-2">
+                              {bountyApplication.blocking_requirements.map((item) => (
+                                <p key={item} className="rounded border border-warning-amber/25 bg-warning-amber/10 p-2 text-warning-amber">{item}</p>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                        <div>
+                          <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Evidence checklist</p>
+                          <div className="mt-2 grid gap-2">
+                            {bountyApplication.evidence_checklist.map((check) => (
+                              <p key={check.label} className={check.passed ? "rounded border border-cyber-green/20 bg-cyber-green/10 p-2 text-cyber-green" : "rounded border border-warning-amber/25 bg-warning-amber/10 p-2 text-warning-amber"}>{check.passed ? "✓" : "•"} {check.label}: {check.detail}</p>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Application artifacts</p>
+                          <div className="mt-2 grid gap-1">
+                            {bountyApplication.artifacts.map((file) => (
+                              <p key={file.path} className="rounded border border-white/[0.06] bg-[#071410] p-2 font-mono text-[10px] text-white/55">{file.path}</p>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="rounded border border-red-400/20 bg-red-400/10 p-2 text-red-200">Live submit is still disabled. You review this packet first, then approve the actual signed submission later.</p>
+                      </div>
+                    ) : null}
+                    {questState.bountyApplicationError ? <Notice tone="red" text={questState.bountyApplicationError} /> : null}
                   </div>
                 ) : null}
                 {questState.agentRunError ? <Notice tone="red" text={questState.agentRunError} /> : null}
