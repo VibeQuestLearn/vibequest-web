@@ -444,6 +444,50 @@ export type GenerateLearningQuestResponse = {
   warning: string | null;
 };
 
+export type AibtcAgentActionDto = {
+  step: number;
+  label: string;
+  intent: string;
+  status: string;
+  evidence: string;
+};
+
+export type AibtcAgentEvidenceDto = {
+  label: string;
+  status: string;
+  detail: string;
+};
+
+export type AibtcAgentDenialCheckDto = {
+  label: string;
+  passed: boolean;
+  detail: string;
+};
+
+export type AibtcAgentRunResponse = {
+  run_id: string;
+  agent_run_id: string;
+  mode: string;
+  status: "passed" | "blocked" | string;
+  summary: string;
+  safety_boundary: string[];
+  actions: AibtcAgentActionDto[];
+  evidence: AibtcAgentEvidenceDto[];
+  denial_checks: AibtcAgentDenialCheckDto[];
+  artifacts: WorkbenchFileDto[];
+  started_at: string;
+  finished_at: string;
+};
+
+export type RunAibtcAgentRequest = {
+  run_id: string;
+  module_id: string;
+  ecosystem_id: EcosystemId;
+  topic: string;
+  learning_context: LearningQuestLinkDto;
+  quest: QuestBlueprintDto;
+};
+
 export type RunnerSubmissionView = {
   submission_id: string;
   scenario_id: string;
@@ -604,6 +648,18 @@ export async function generateLearningQuest(
   });
 
   return parseJsonResponse<GenerateLearningQuestResponse>(response);
+}
+
+export async function runAibtcAgent(
+  request: RunAibtcAgentRequest,
+): Promise<AibtcAgentRunResponse> {
+  const response = await fetch("/api/core/ai/learning/agent/run", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  return parseJsonResponse<AibtcAgentRunResponse>(response);
 }
 
 export async function submitRunnerSource({
