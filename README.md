@@ -95,7 +95,7 @@ The Golem session modal exposes the reviewer sample path after a learner selects
 5. Generate the course; module 1 opens while Core continues validating modules 2-5.
 6. Inspect agent identity coverage, signed-action coverage, bounty-workflow coverage, sBTC payment-proof coverage, unsafe-autonomy warnings, source categories, code samples, checkpoints, and final agent quest readiness.
 
-Grant-readiness evidence for AIBTC should show a generated source-grounded course, validation artifact, code-copy event, checkpoint attempt, final quest visibility, and usage metrics.
+Grant-readiness evidence for AIBTC should show a generated source-grounded course, validation artifact, code-copy event, checkpoint attempt, final quest visibility, an AIBTC autonomous agent dry-run, and usage metrics. The Workbench agent run is intentionally bounded: it produces action logs, denial checks, and artifacts without submitting live bounties, signing wallets, or moving funds.
 
 ## Product Architecture
 

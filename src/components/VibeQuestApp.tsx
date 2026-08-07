@@ -47,10 +47,12 @@ import {
   loadLearningMetrics,
   loadLearningSession,
   loadLearningSessions,
+  runAibtcAgent,
   saveLearningSession,
   submitRunnerSource,
   trackLearningEvent,
   type AiProviderMetadataDto,
+  type AibtcAgentRunResponse,
   type EcosystemId,
   type GenerateLearningQuestResponse,
   type LearningAdminReviewResponse,
@@ -134,6 +136,8 @@ type QuestState = {
   verificationLog: string[];
   runnerSubmission: RunnerSubmissionView | null;
   runnerError: string | null;
+  agentRun: AibtcAgentRunResponse | null;
+  agentRunError: string | null;
 };
 
 const TOTAL_LEARNING_MODULES = 5;
@@ -373,6 +377,7 @@ export function VibeQuestApp({
   const [reviewState, setReviewState] = useState<ReviewState>({ status: "idle", data: null, exportData: null, error: null });
   const [metricsState, setMetricsState] = useState<LearningMetricsResponse | null>(null);
   const [runnerSubmitting, setRunnerSubmitting] = useState(false);
+  const [agentRunning, setAgentRunning] = useState(false);
   const generationRunRef = useRef<string | null>(null);
   const answersRef = useRef(answers);
   const tutorMessagesRef = useRef(tutorMessages);
@@ -1194,6 +1199,8 @@ export function VibeQuestApp({
         verificationLog: [],
         runnerSubmission: null,
         runnerError: null,
+        agentRun: null,
+        agentRunError: null,
       });
       navigateToTab("workbench");
     } catch (error) {
@@ -1221,6 +1228,45 @@ export function VibeQuestApp({
       workspaceVerified: verification.passed,
       verificationLog: verification.logs,
     });
+  }
+
+  async function runAibtcAutonomousAgent() {
+    if (!questState || !moduleState || moduleState.ecosystem.id !== "aibtc") return;
+
+    const activeQuestState = questState;
+    setAgentRunning(true);
+    setQuestState({ ...activeQuestState, agentRunError: null });
+    try {
+      const agentRun = await runAibtcAgent({
+        run_id: activeQuestState.response.run_id,
+        module_id: moduleState.id,
+        ecosystem_id: "aibtc",
+        topic: moduleState.topic,
+        learning_context: activeQuestState.response.learning_context,
+        quest: activeQuestState.response.quest,
+      });
+      setQuestState({ ...activeQuestState, agentRun, agentRunError: null });
+      logLearningEvent(agentRun.status === "blocked" ? "agent_run_blocked" : "agent_run_completed", {
+        moduleId: moduleState.id,
+        lessonId: activeQuestState.response.learning_context.lesson_id,
+        ecosystemId: "aibtc",
+        courseTitle: moduleState.module.title,
+        metadata: {
+          agent_run_id: agentRun.agent_run_id,
+          mode: agentRun.mode,
+          status: agentRun.status,
+          denial_checks: String(agentRun.denial_checks.length),
+          actions: String(agentRun.actions.length),
+        },
+      });
+    } catch (error) {
+      setQuestState({
+        ...activeQuestState,
+        agentRunError: error instanceof Error ? error.message : "AIBTC agent run failed.",
+      });
+    } finally {
+      setAgentRunning(false);
+    }
   }
 
   async function submitSelectedFileToRunner() {
@@ -1447,7 +1493,9 @@ export function VibeQuestApp({
           onVerifyWorkspace={verifyWorkspace}
           onSubmitRunner={() => void submitSelectedFileToRunner()}
           onRefreshRunner={() => void refreshRunnerSubmission()}
+          onRunAgent={() => void runAibtcAutonomousAgent()}
           runnerSubmitting={runnerSubmitting}
+          agentRunning={agentRunning}
         />
       ) : null}
       {activeTab === "review" ? (
@@ -4122,7 +4170,9 @@ function WorkbenchView({
   onVerifyWorkspace,
   onSubmitRunner,
   onRefreshRunner,
+  onRunAgent,
   runnerSubmitting,
+  agentRunning,
 }: {
   moduleState: ModuleState | null;
   questState: QuestState | null;
@@ -4131,7 +4181,9 @@ function WorkbenchView({
   onVerifyWorkspace: () => void;
   onSubmitRunner: () => void;
   onRefreshRunner: () => void;
+  onRunAgent: () => void;
   runnerSubmitting: boolean;
+  agentRunning: boolean;
 }) {
   if (!questState) {
     return (
@@ -4159,6 +4211,8 @@ function WorkbenchView({
       questState.response.runner.ecosystem_supported &&
       moduleState?.ecosystem.id === "zcash",
   );
+  const agentCanRun = moduleState?.ecosystem.id === "aibtc";
+  const agentRun = questState.agentRun;
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-[1440px] flex-col gap-6 p-4 md:p-8">
@@ -4217,6 +4271,73 @@ function WorkbenchView({
               ))}
             </div>
           </Panel>
+
+          {agentCanRun ? (
+            <Panel title="Autonomous agent" icon={<Cpu className="h-5 w-5 text-electric-blue" />}>
+              <div className="grid gap-3">
+                <MiniStat label="Mode" value={agentRun?.mode ?? "Dry-run ready"} />
+                <MiniStat label="Status" value={agentRun?.status ?? "Not run"} />
+                <button
+                  type="button"
+                  onClick={onRunAgent}
+                  disabled={agentRunning}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-electric-blue px-4 text-xs font-black uppercase tracking-wider text-black shadow-[0_0_24px_rgba(0,240,255,0.16)] disabled:brightness-50"
+                >
+                  {agentRunning ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                  Run AIBTC Agent
+                </button>
+                <p className="rounded-lg border border-electric-blue/20 bg-electric-blue/10 p-3 text-xs leading-relaxed text-electric-blue">
+                  Runs a bounded autonomous agent inside VibeQuest. It plans signed actions, validates bounty/payment/reputation evidence, and emits artifacts. It does not submit live bounties, sign wallets, or move funds.
+                </p>
+                {agentRun ? (
+                  <div className="grid gap-3 rounded-lg border border-glass-border bg-[#0B0C0E] p-3 text-xs leading-6 text-on-surface-variant">
+                    <p><span className="font-bold text-white">Agent run:</span> {agentRun.agent_run_id}</p>
+                    <p><span className="font-bold text-white">Summary:</span> {agentRun.summary}</p>
+                    <div>
+                      <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Action log</p>
+                      <div className="mt-2 grid gap-2">
+                        {agentRun.actions.map((action) => (
+                          <div key={`${action.step}-${action.label}`} className="rounded border border-white/[0.06] bg-[#071410] p-2">
+                            <p className="font-bold text-white">{action.step}. {action.label} <span className={action.status === "blocked" ? "text-red-300" : action.status === "completed" ? "text-cyber-green" : "text-warning-amber"}>· {action.status}</span></p>
+                            <p className="mt-1 text-white/48">{action.intent}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Evidence</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {agentRun.evidence.map((item) => (
+                          <span key={item.label} className={item.status === "present" ? "rounded-full border border-cyber-green/25 bg-cyber-green/10 px-2.5 py-1 text-[11px] font-bold text-cyber-green" : "rounded-full border border-warning-amber/25 bg-warning-amber/10 px-2.5 py-1 text-[11px] font-bold text-warning-amber"}>
+                            {item.label}: {item.status}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Denial checks</p>
+                      <div className="mt-2 grid gap-2">
+                        {agentRun.denial_checks.map((check) => (
+                          <p key={check.label} className={check.passed ? "rounded border border-cyber-green/20 bg-cyber-green/10 p-2 text-cyber-green" : "rounded border border-red-400/25 bg-red-400/10 p-2 text-red-200"}>
+                            {check.passed ? "✓" : "×"} {check.label}: {check.detail}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Artifacts</p>
+                      <div className="mt-2 grid gap-1">
+                        {agentRun.artifacts.map((file) => (
+                          <p key={file.path} className="rounded border border-white/[0.06] bg-[#020b0a] p-2 font-mono text-[10px] text-white/55">{file.path}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                {questState.agentRunError ? <Notice tone="red" text={questState.agentRunError} /> : null}
+              </div>
+            </Panel>
+          ) : null}
 
           <Panel title="Runner evidence" icon={<Cpu className="h-5 w-5 text-warning-amber" />}>
             <div className="grid gap-3">
